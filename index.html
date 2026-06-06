@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Dog Tag</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0E003A; 
+      --accent-pink: #E550E5; 
+      --text-main: #ffffff;
+      --box-bg: rgba(43, 27, 96, 0.8);
+    }
+    
+    body {
+      margin: 0; padding: 20px; background-color: var(--bg-color); 
+      color: var(--text-main); font-family: 'Montserrat', sans-serif;
+      box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    }
+
+    .container { max-width: 600px; width: 100%; text-align: center; }
+
+    /* UI States */
+    #loadingScreen, #appScreen, #unregisteredScreen { display: none; width: 100%; }
+    #loadingScreen.active, #appScreen.active, #unregisteredScreen.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Loading Spinner */
+    .spinner {
+      border: 6px solid rgba(255, 255, 255, 0.1); border-top: 6px solid var(--accent-pink);
+      border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+      margin: 100px auto 20px auto;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Profile Elements */
+    .dog-photo {
+      width: 200px; height: 200px; border-radius: 50%; border: 6px solid var(--accent-pink);
+      object-fit: cover; aspect-ratio: 1 / 1; box-shadow: 0 0 20px rgba(229, 80, 229, 0.5);
+      margin: 0 auto 15px auto; display: block; background: var(--box-bg);
+    }
+
+    h1 { margin: 10px 0 5px 0; font-weight: 800; font-size: 38px; letter-spacing: -0.5px; }
+    h2 { font-size: 16px; font-weight: 600; color: #D0C3FF; margin: 0 0 20px 0; }
+    
+    /* Tabs */
+    .tab-container { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn {
+      flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 800;
+      cursor: pointer; transition: 0.3s; background: rgba(255,255,255,0.1); color: var(--text-main);
+      font-family: 'Montserrat', sans-serif;
+    }
+    .tab-btn.active { background: var(--accent-pink); box-shadow: 0 4px 15px rgba(229, 80, 229, 0.4); }
+    .tab-content { display: none; text-align: left;}
+    .tab-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+
+    /* Info Cards & Buttons */
+    .info-card {
+      background: var(--box-bg); border-radius: 16px; padding: 30px;
+      margin-bottom: 30px; font-size: 16px; line-height: 1.8; box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    .info-card p { margin: 0 0 12px 0; }
+    .info-card p:last-child { margin: 0; }
+    .info-card strong { color: var(--accent-pink); font-weight: 800; }
+    hr { border: 0; border-top: 1px solid rgba(255,255,255,0.15); margin: 20px 0; }
+
+    .btn {
+      background-color: var(--accent-pink); color: white; border: none; border-radius: 50px;
+      padding: 18px 20px; font-size: 16px; font-weight: 800; cursor: pointer; width: 100%;
+      margin-bottom: 15px; display: block; text-decoration: none; transition: transform 0.2s; box-sizing: border-box; font-family: 'Montserrat', sans-serif; text-align: center;
+    }
+    .btn:hover { background-color: #ff66ff; transform: scale(1.02); }
+    .btn-secondary { background-color: transparent; border: 3px solid var(--accent-pink); }
+    .btn-secondary:hover { background-color: rgba(229, 80, 229, 0.1); }
+    .btn-whatsapp { background-color: #25D366; color: white; }
+    .btn-whatsapp:hover { background-color: #1EBE5D; }
+    .btn-insta { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+    
+    #status { margin-top: 10px; font-size: 14px; font-weight: 600; color: #00FFCC; text-align: center;}
+    .vet-link { color: #00FFCC; text-decoration: none; font-weight: 800; }
+  </style>
+</head>
+<body>
+
+  <div id="loadingScreen" class="container active">
+    <div class="spinner"></div>
+    <h2 style="margin-top: 20px;">Fetching Profile...</h2>
+  </div>
+
+  <div id="unregisteredScreen" class="container">
+    <h1 style="font-size: 60px;">🎉</h1>
+    <h1>Welcome to your new Smart Tag!</h1>
+    <h2 style="margin-bottom: 40px;">This tag hasn't been claimed yet.</h2>
+    <div class="info-card" style="text-align: center;">
+      <p>Secure your pet by linking their details to this digital tag. It only takes 60 seconds.</p>
+    </div>
+    <a id="register-btn" href="#" target="_blank" class="btn">🚀 Register This Tag Now</a>
+  </div>
+
+  <div id="appScreen" class="container">
+    <img id="ui-photo" src="" alt="Dog Photo" class="dog-photo" onerror="this.onerror=null; this.src='https://placehold.co/200x200/2b1b60/ffffff?text=🐾'">
+    
+    <h1 id="ui-title">Hi, I'm <span id="ui-name"></span>! 🐾</h1>
+    <h2>I am a <span id="ui-breed"></span>, and I might be lost.</h2>
+
+    <div class="tab-container">
+      <button class="tab-btn active" onclick="switchTab('about')">🐾 About Me</button>
+      <button class="tab-btn" onclick="switchTab('emergency')">🚨 Emergency</button>
+    </div>
+
+    <div id="about" class="tab-content active">
+      <div class="info-card">
+        <p><strong>💖 Likes:</strong> <span id="ui-likes"></span></p>
+        <p><strong>🛑 Quirks:</strong> <span id="ui-quirks"></span></p>
+        <p><strong>🎂 Birthday:</strong> <span id="ui-birthday"></span></p>
+      </div>
+      <a id="ui-insta-btn" href="#" target="_blank" class="btn btn-insta" style="display:none;">📸 Follow my Instagram!</a>
+    </div>
+
+    <div id="emergency" class="tab-content">
+      <div class="info-card">
+        <p><strong>🏠 Home Address:</strong><br><span id="ui-address"></span></p>
+        <hr>
+        <p><strong>🏥 Vet / Medical Vault:</strong><br>
+        Microchip: <span id="ui-microchip"></span><br>
+        Status: <span id="ui-spayed"></span><br>
+        Notes: <span id="ui-medNotes"></span><br><br>
+        <strong>Registered Vet:</strong> <span id="ui-vetName"></span><br>
+        <strong>Vet Tel:</strong> <a id="ui-vetPhoneLink" href="#" class="vet-link"><span id="ui-vetPhone"></span></a></p>
+      </div>
+
+      <a id="ui-whatsapp" href="#" target="_blank" class="btn btn-whatsapp">💬 WhatsApp Owner</a>
+      <a id="ui-call" href="#" class="btn btn-secondary">📞 Call Owner</a>
+      <a id="ui-text" href="#" class="btn btn-secondary">💬 Text Owner</a>
+
+      <button id="locBtn" class="btn" onclick="getLocation()">📍 Share My Location With Owner</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // YOUR LIVE GOOGLE DATABASE URL IS NOW HARDCODED BELOW
+    // =========================================================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvgggHlJYy2f0Bmmbg2876YlFh5bnxLiycjs9BWvAcR6prLF5_ftxWyRaJSERKOlXUxw/exec";
+    // =========================================================================
+    
+    // Globals for GPS
+    let globalOwnerEmail = "";
+    let globalDogName = "";
+
+    // BOOTUP: Check the Tag ID in the URL
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tagId = urlParams.get('id');
+      const registerBtn = document.getElementById("register-btn");
+      const baseFormLink = "https://docs.google.com/forms/d/e/1FAIpQLSeAAKSyC0F44Ra0ekxaHzfNcc3dKFOBwvsXCcF4ciXnf9RbGA/viewform";
+
+      if (!tagId) {
+        // If there's no ID at all, just send them to the blank form
+        registerBtn.href = baseFormLink;
+        showScreen("unregisteredScreen");
+        return;
+      } else {
+        // Embed the scanned tag ID into the Google Form link automatically!
+        registerBtn.href = `${baseFormLink}?usp=pp_url&entry.1953895996=${encodeURIComponent(tagId)}`;
+      }
+
+      // Fetch the data from your Google Sheet
+      fetch(`${SCRIPT_URL}?action=getProfile&id=${encodeURIComponent(tagId)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            // Tag ID is not in the spreadsheet! Show the retail screen.
+            showScreen("unregisteredScreen");
+          } else {
+            // Success! Inject the spreadsheet data into the HTML picture frame
+            buildProfile(data);
+          }
+        })
+        .catch(error => {
+          document.getElementById("status").innerHTML = "Error loading profile. Check connection.";
+        });
+    };
+
+    // THE BUILDER: Injects data into the UI
+    function buildProfile(data) {
+      document.getElementById("ui-name").innerText = data.dogName;
+      document.getElementById("ui-breed").innerText = data.breed;
+      document.getElementById("ui-likes").innerText = data.likes;
+      document.getElementById("ui-quirks").innerText = data.quirks;
+      
+      let bday = new Date(data.birthday);
+      document.getElementById("ui-birthday").innerText = isNaN(bday) ? data.birthday : bday.toLocaleDateString('en-GB');
+
+      document.getElementById("ui-address").innerText = data.address || "Address hidden";
+      document.getElementById("ui-microchip").innerText = data.microchip || "N/A";
+      document.getElementById("ui-spayed").innerText = data.spayed || "Unknown";
+      document.getElementById("ui-medNotes").innerText = data.medicalNotes || "None";
+      document.getElementById("ui-vetName").innerText = data.vetName || "N/A";
+      document.getElementById("ui-vetPhone").innerText = data.vetPhone || "N/A";
+      
+      if(data.vetPhone) {
+         document.getElementById("ui-vetPhoneLink").href = `tel:${data.vetPhone}`;
+      }
+
+      let rawPhone = data.ownerPhone ? String(data.ownerPhone).replace(/\D/g,'') : "";
+      document.getElementById("ui-whatsapp").href = `https://wa.me/${rawPhone}?text=Hi%20${data.ownerName},%20I%20have%20found%20${data.dogName}!`;
+      document.getElementById("ui-call").href = `tel:${rawPhone}`;
+      document.getElementById("ui-text").href = `sms:${rawPhone}?&body=Hi%20${data.ownerName},%20I%20have%20found%20${data.dogName}!`;
+
+      if (data.instagram && data.instagram.includes("http")) {
+        let instaBtn = document.getElementById("ui-insta-btn");
+        instaBtn.href = data.instagram;
+        instaBtn.style.display = "block";
+      }
+
+      globalOwnerEmail = data.ownerEmail;
+      globalDogName = data.dogName;
+
+      let photoUrl = data.photoUrl;
+      if (photoUrl && photoUrl.includes("drive.google.com")) {
+        let fileIdMatch = photoUrl.match(/id=([a-zA-Z0-9_-]+)/) || photoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch) {
+          photoUrl = `https://drive.google.com/thumbnail?id=${fileIdMatch[1]}&sz=w800`;
+        }
+      }
+      if(photoUrl) { document.getElementById("ui-photo").src = photoUrl; }
+
+      showScreen("appScreen");
+    }
+
+    // GPS LOGIC
+    function getLocation() {
+      document.getElementById("status").innerHTML = "Locating... 📡";
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(sendPosition, showError);
+      } else {
+        document.getElementById("status").innerHTML = "Geolocation is not supported by your browser.";
+      }
+    }
+
+    function sendPosition(position) {
+      document.getElementById("status").innerHTML = "Sending location... 🚀";
+      var lat = position.coords.latitude;
+      var lon = position.coords.longitude;
+      
+      var finalUrl = SCRIPT_URL + "?lat=" + lat + "&lon=" + lon + 
+                     "&email=" + encodeURIComponent(globalOwnerEmail) + 
+                     "&dog=" + encodeURIComponent(globalDogName);
+      
+      fetch(finalUrl, { mode: 'no-cors' })
+        .then(() => {
+          document.getElementById("status").innerHTML = "Location sent! They are on their way. 🐙";
+          document.getElementById("locBtn").style.display = 'none';
+        })
+        .catch(() => {
+          document.getElementById("status").innerHTML = "Location sent! They are on their way. 🐙";
+          document.getElementById("locBtn").style.display = 'none';
+        });
+    }
+
+    function showError(error) {
+      document.getElementById("status").innerHTML = "Location sharing was denied. Please call, text, or WhatsApp the owner instead!";
+    }
+
+    // Tab Logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    // Screen Manager
+    function showScreen(screenId) {
+      document.getElementById("loadingScreen").classList.remove("active");
+      document.getElementById("appScreen").classList.remove("active");
+      document.getElementById("unregisteredScreen").classList.remove("active");
+      document.getElementById(screenId).classList.add("active");
+    }
+  </script>
+</body>
+</html>
