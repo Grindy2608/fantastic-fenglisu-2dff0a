@@ -96,7 +96,7 @@
     <div class="info-card" style="text-align: center;">
       <p>Secure your pet by linking their details to this digital tag. It only takes 60 seconds.</p>
     </div>
-    <a id="register-btn" href="#" target="_blank" class="btn">🚀 Register This Tag Now</a>
+    <a id="register-btn" href="#" class="btn">🚀 Register This Tag Now</a>
   </div>
 
   <div id="appScreen" class="container">
@@ -117,6 +117,7 @@
         <p><strong>🎂 Birthday:</strong> <span id="ui-birthday"></span></p>
       </div>
       <a id="ui-insta-btn" href="#" target="_blank" class="btn btn-insta" style="display:none;">📸 Follow my Instagram!</a>
+      <a id="ui-edit-btn" href="#" style="display:none" class="btn">✏️ Edit details & reminders</a>
     </div>
 
     <div id="emergency" class="tab-content">
@@ -160,12 +161,12 @@
 
       if (!tagId) {
         // If there's no ID at all, just send them to the blank form
-        registerBtn.href = baseFormLink;
+          registerBtn.href = SCRIPT_URL + "?manage=NEW";
         showScreen("unregisteredScreen");
         return;
       } else {
         // Embed the scanned tag ID into the Google Form link automatically!
-        registerBtn.href = `${baseFormLink}?usp=pp_url&entry.1953895996=${encodeURIComponent(tagId)}`;
+            registerBtn.href = SCRIPT_URL + "?manage=" + encodeURIComponent(tagId);
       }
 
       // Fetch the data from your Google Sheet
@@ -229,6 +230,14 @@
       }
       if(photoUrl) { document.getElementById("ui-photo").src = photoUrl; }
 
+    try {
+      var editLink = document.getElementById("ui-edit-btn");
+      if (editLink) {
+        var ek = data.ownerKey ? ("&key=" + encodeURIComponent(data.ownerKey)) : "";
+        editLink.href = SCRIPT_URL + "?manage=" + encodeURIComponent(new URLSearchParams(location.search).get("id")||"") + ek;
+        editLink.style.display = "block";
+      }
+    } catch(e){}
       showScreen("appScreen");
     }
 
@@ -292,7 +301,13 @@
 .octo-act:hover{filter:brightness(1.06)}
 </style>
 <div id="octoFinderActions" style="display:none;max-width:480px;width:100%;margin:8px auto 28px;padding:0 4px;box-sizing:border-box">
-  <button id="octoSosBtn" class="octo-act octo-act-primary">📣 Share SOS &mdash; help find me</button>
+      <button id="octoSosBtn" class="octo-act octo-act-primary">📣 Share SOS &mdash; help find me</button>
+      <div id="octoShareRow" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px">
+        <button id="shX"  class="octo-act" style="flex:1;min-width:120px;background:#000;color:#fff">𝕏 (Twitter)</button>
+        <button id="shFb" class="octo-act" style="flex:1;min-width:120px;background:#1877F2;color:#fff">Facebook</button>
+        <button id="shWa" class="octo-act" style="flex:1;min-width:120px;background:#25D366;color:#062a14">WhatsApp</button>
+        <button id="shIg" class="octo-act" style="flex:1;min-width:120px;background:linear-gradient(135deg,#f58529,#dd2a7b,#8134af);color:#fff">Instagram</button>
+      </div>
   <button id="octoSafeBtn" class="octo-act octo-act-safe">✅ I found this dog &mdash; they are safe</button>
   <button id="octoVetBtn" class="octo-act octo-act-vet">🏥 Find a vet now</button>
   <button id="octoQrBtn" class="octo-act octo-act-ghost">🔗 Show QR code</button>
@@ -305,6 +320,26 @@
   var id=new URLSearchParams(location.search).get("id")||"";
   var wrap=document.getElementById("octoFinderActions");
   var status=document.getElementById("octoExtraStatus");
+    var shareUrl = location.href;
+    var dogNm = (document.getElementById("ui-name")||{}).innerText || "my dog";
+    var shareText = "Help! " + dogNm + " is lost. If found, please open this tag: ";
+    function openWin(u){ window.open(u, "_blank", "noopener"); }
+    var bX  = document.getElementById("shX");
+    var bFb = document.getElementById("shFb");
+    var bWa = document.getElementById("shWa");
+    var bIg = document.getElementById("shIg");
+    if(bX)  bX.addEventListener("click", function(){ openWin("https://twitter.com/intent/tweet?text=" + encodeURIComponent(shareText) + "&url=" + encodeURIComponent(shareUrl)); });
+    if(bFb) bFb.addEventListener("click", function(){ openWin("https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(shareUrl)); });
+    if(bWa) bWa.addEventListener("click", function(){ openWin("https://wa.me/?text=" + encodeURIComponent(shareText + " " + shareUrl)); });
+    if(bIg) bIg.addEventListener("click", function(){
+      if(navigator.share){ navigator.share({title:"Lost dog", text:shareText, url:shareUrl}).catch(function(){}); }
+      else { try{navigator.clipboard.writeText(shareUrl);}catch(e){} if(status) status.textContent="Link copied — paste it into your Instagram story or DM."; }
+    });
+    var sosNative = document.getElementById("octoSosBtn");
+    if(sosNative) sosNative.addEventListener("click", function(){
+      if(navigator.share){ navigator.share({title:"Lost dog", text:shareText, url:shareUrl}).catch(function(){}); }
+      else { var r=document.getElementById("octoShareRow"); if(r) r.scrollIntoView({behavior:"smooth"}); }
+    });
   function appActive(){var a=document.getElementById("appScreen");return a&&a.classList.contains("active");}
   function sync(){ if(wrap){ wrap.style.display = appActive()?"block":"none"; } }
   sync(); var t0=Date.now(); var iv=setInterval(function(){sync(); if(Date.now()-t0>15000) clearInterval(iv);},500);
@@ -313,7 +348,7 @@
   var safe=document.getElementById("octoSafeBtn");
   var vet=document.getElementById("octoVetBtn");
   var qr=document.getElementById("octoQrBtn");
-  if(sos) sos.addEventListener("click",function(){ go(SU+"?sos=1&id="+encodeURIComponent(id)); });
+    /* legacy SOS nav removed; SOS now uses native share / share row */
   if(qr) qr.addEventListener("click",function(){ go(SU+"?qr=1&id="+encodeURIComponent(id)); });
   if(vet) vet.addEventListener("click",function(){
     if(status) status.textContent="Getting your location\u2026";
