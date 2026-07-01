@@ -798,7 +798,14 @@ document.addEventListener('DOMContentLoaded', function() {
     registerBtn.href = SCRIPT_URL + "?manage=" + encodeURIComponent(tagId);
     fetch(`${SCRIPT_URL}?action=getProfile&id=${encodeURIComponent(tagId)}`)
       .then(r => r.json())
-      .then(d => d.error ? showScreen("unregisteredScreen") : buildProfile(d))
+      .then(d => {
+        // Show unregistered screen if: API error, tag not found, OR tag exists but has no dog name yet (blank row)
+        if (d.error || !d.dogName || !String(d.dogName).trim()) {
+          showScreen("unregisteredScreen");
+        } else {
+          buildProfile(d);
+        }
+      })
       .catch(() => { document.getElementById("status").textContent = "Error loading — check your connection."; showScreen("unregisteredScreen"); });
   };
 
