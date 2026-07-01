@@ -1,388 +1,923 @@
-// ====================================================
-//  PIP SMART TAG — Google Apps Script Backend
-//  Version 2.0
-//
-//  SETUP:
-//  1. Create a Google Sheet with a tab named "Tags"
-//  2. Replace SPREADSHEET_ID below with your Sheet's ID
-//     (find it in the Sheet URL: /spreadsheets/d/ID/edit)
-//  3. Replace SITE_URL with your Netlify domain
-//  4. Deploy: Extensions → Apps Script → Deploy →
-//     New Deployment → Web App
-//     Execute as: Me | Who can access: Anyone
-//  5. Copy the deployment URL into index.html (API const)
-// ====================================================
-
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
-const SHEET_NAME     = 'Tags';
-const SITE_URL       = 'https://YOUR_NETLIFY_DOMAIN_HERE';
-
-// Column positions (1-indexed)
-const C = {
-  TAG_ID:        1,
-  TOKEN:         2,
-  OWNER_NAME:    3,
-  OWNER_EMAIL:   4,
-  OWNER_PHONE:   5,
-  OWNER_WHATSAPP:6,
-  DOG_NAME:      7,
-  BREED:         8,
-  PHOTO_URL:     9,
-  LIKES:         10,
-  QUIRKS:        11,
-  BIRTHDAY:      12,
-  INSTAGRAM:     13,
-  ADDRESS:       14,
-  MICROCHIP:     15,
-  VET_STATUS:    16,
-  VET_NOTES:     17,
-  VET_NAME:      18,
-  VET_PHONE:     19,
-  REGISTERED:    20,
-  LAST_UPDATED:  21,
-};
-
-// ====================================================
-//  SHEET ACCESS
-// ====================================================
-function getSheet() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    // Auto-create the sheet with headers if it doesn't exist
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow([
-      'Tag ID', 'Token', 'Owner Name', 'Owner Email',
-      'Owner Phone', 'Owner WhatsApp', 'Dog Name', 'Breed',
-      'Photo URL', 'Likes', 'Quirks', 'Birthday', 'Instagram',
-      'Address', 'Microchip', 'Vet Status', 'Vet Notes',
-      'Vet Name', 'Vet Phone', 'Registered', 'Last Updated'
-    ]);
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
-}
-
-function findRow(sheet, tagId) {
-  if (!tagId) return null;
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).toLowerCase() === String(tagId).toLowerCase()) {
-      return { rowNum: i + 1, row: data[i] };
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pip Smart Tag</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream:     #f5ead5;
+      --card:      #fffdf2;
+      --teal:      #20b090;
+      --teal-dk:   #177860;
+      --teal-lt:   #d0f0e8;
+      --pink:      #e02878;
+      --pink-dk:   #a81858;
+      --pink-lt:   #fce0ee;
+      --coral:     #f05030;
+      --coral-dk:  #c03818;
+      --coral-lt:  #fde0d8;
+      --gold:      #f8c000;
+      --gold-dk:   #c09000;
+      --gold-lt:   #fff0c0;
+      --sage:      #50a838;
+      --sage-dk:   #387828;
+      --sage-lt:   #d8f0c8;
+      --purple:    #9840d8;
+      --purple-dk: #7028a8;
+      --purple-lt: #ead8f8;
+      --sky:       #30a8e0;
+      --sky-lt:    #d0eef8;
+      --brown:     #351805;
+      --brown-mid: #7a4018;
+      --r:         14px;
     }
-  }
-  return null;
-}
 
-function generateToken() {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let t = '';
-  for (let i = 0; i < 28; i++) t += chars[Math.floor(Math.random() * chars.length)];
-  return t;
-}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ====================================================
-//  GET HANDLER — serves profile data and verify requests
-// ====================================================
-function doGet(e) {
-  try {
-    const p = e.parameter;
-    if (p.action === 'get')    return respond(handleGet(p.tagId));
-    if (p.action === 'verify') return respond(handleVerify(p.tagId, p.token));
-    return respond({ error: 'Unknown action' });
-  } catch (err) {
-    Logger.log(err);
-    return respond({ error: err.message });
-  }
-}
-
-// ====================================================
-//  POST HANDLER
-// ====================================================
-function doPost(e) {
-  try {
-    const body = JSON.parse(e.postData.contents);
-    if (body.action === 'register') return respond(handleRegister(body));
-    if (body.action === 'update')   return respond(handleUpdate(body));
-    if (body.action === 'location') return respond(handleLocation(body));
-    if (body.action === 'found')    return respond(handleFound(body));
-    return respond({ error: 'Unknown action' });
-  } catch (err) {
-    Logger.log(err);
-    return respond({ error: err.message });
-  }
-}
-
-// ====================================================
-//  GET PROFILE
-// ====================================================
-function handleGet(tagId) {
-  if (!tagId) return { error: 'No tagId provided' };
-  const sheet = getSheet();
-  const found = findRow(sheet, tagId);
-  if (!found) return { error: 'Tag not found' };
-  return rowToProfile(found.row);
-}
-
-function rowToProfile(r) {
-  return {
-    dogName:       r[C.DOG_NAME       - 1],
-    breed:         r[C.BREED          - 1],
-    photoUrl:      r[C.PHOTO_URL      - 1],
-    likes:         r[C.LIKES          - 1],
-    quirks:        r[C.QUIRKS         - 1],
-    birthday:      formatDateForApi(r[C.BIRTHDAY - 1]),
-    instagram:     r[C.INSTAGRAM      - 1],
-    address:       r[C.ADDRESS        - 1],
-    microchip:     r[C.MICROCHIP      - 1],
-    vetStatus:     r[C.VET_STATUS     - 1],
-    vetNotes:      r[C.VET_NOTES      - 1],
-    vetName:       r[C.VET_NAME       - 1],
-    vetPhone:      r[C.VET_PHONE      - 1],
-    ownerName:     r[C.OWNER_NAME     - 1],
-    ownerPhone:    r[C.OWNER_PHONE    - 1],
-    ownerWhatsapp: r[C.OWNER_WHATSAPP - 1],
-    // Note: ownerEmail and token are NEVER returned publicly
-  };
-}
-
-// ====================================================
-//  VERIFY TOKEN (for edit form pre-fill)
-// ====================================================
-function handleVerify(tagId, token) {
-  if (!tagId || !token) return { error: 'Missing tagId or token' };
-  const sheet = getSheet();
-  const found = findRow(sheet, tagId);
-  if (!found) return { error: 'Tag not found' };
-  if (String(found.row[C.TOKEN - 1]) !== String(token)) return { error: 'Invalid token' };
-  // Return profile data for pre-filling the edit form
-  return rowToProfile(found.row);
-}
-
-// ====================================================
-//  REGISTER NEW TAG
-// ====================================================
-function handleRegister(body) {
-  const { tagId, ownerEmail, dogName } = body;
-  if (!tagId)      return { error: 'Missing tagId' };
-  if (!ownerEmail) return { error: 'Missing owner email' };
-  if (!dogName)    return { error: 'Missing dog name' };
-
-  const sheet = getSheet();
-  if (findRow(sheet, tagId)) return { error: 'This tag has already been registered.' };
-
-  const token = generateToken();
-  const now   = new Date();
-
-  sheet.appendRow([
-    tagId,
-    token,
-    body.ownerName     || '',
-    ownerEmail,
-    body.ownerPhone    || '',
-    body.ownerWhatsapp || body.ownerPhone || '',
-    dogName,
-    body.breed         || '',
-    body.photoUrl      || '',
-    body.likes         || '',
-    body.quirks        || '',
-    body.birthday      || '',
-    body.instagram     || '',
-    body.address       || '',
-    body.microchip     || '',
-    body.vetStatus     || '',
-    body.vetNotes      || '',
-    body.vetName       || '',
-    body.vetPhone      || '',
-    now,
-    now,
-  ]);
-
-  const editUrl = `${SITE_URL}/?tag=${tagId}&token=${token}`;
-  sendEditEmail(ownerEmail, body.ownerName || 'there', dogName, editUrl, tagId);
-
-  return { success: true, token };
-}
-
-// ====================================================
-//  UPDATE EXISTING TAG
-// ====================================================
-function handleUpdate(body) {
-  const { tagId, token, data } = body;
-  if (!tagId || !token) return { error: 'Missing tagId or token' };
-
-  const sheet = getSheet();
-  const found = findRow(sheet, tagId);
-  if (!found) return { error: 'Tag not found' };
-  if (String(found.row[C.TOKEN - 1]) !== String(token)) return { error: 'Invalid token' };
-
-  const row = found.rowNum;
-  const d   = data || {};
-
-  function set(col, v) { sheet.getRange(row, col).setValue(v != null ? v : ''); }
-
-  set(C.DOG_NAME,        d.dogName);
-  set(C.BREED,           d.breed);
-  set(C.PHOTO_URL,       d.photoUrl);
-  set(C.LIKES,           d.likes);
-  set(C.QUIRKS,          d.quirks);
-  set(C.BIRTHDAY,        d.birthday);
-  set(C.INSTAGRAM,       d.instagram);
-  set(C.OWNER_NAME,      d.ownerName);
-  set(C.OWNER_PHONE,     d.ownerPhone);
-  set(C.OWNER_WHATSAPP,  d.ownerWhatsapp || d.ownerPhone);
-  set(C.ADDRESS,         d.address);
-  set(C.MICROCHIP,       d.microchip);
-  set(C.VET_STATUS,      d.vetStatus);
-  set(C.VET_NOTES,       d.vetNotes);
-  set(C.VET_NAME,        d.vetName);
-  set(C.VET_PHONE,       d.vetPhone);
-  set(C.LAST_UPDATED,    new Date());
-
-  return { success: true };
-}
-
-// ====================================================
-//  LOCATION ALERT
-// ====================================================
-function handleLocation(body) {
-  const { tagId, lat, lon, mapsUrl } = body;
-  if (!tagId) return { error: 'Missing tagId' };
-
-  const sheet = getSheet();
-  const found = findRow(sheet, tagId);
-  if (!found) return { success: true }; // silent — don't expose whether tag exists
-
-  const r         = found.row;
-  const email     = r[C.OWNER_EMAIL - 1];
-  const ownerName = r[C.OWNER_NAME  - 1] || 'there';
-  const dogName   = r[C.DOG_NAME    - 1] || 'your dog';
-  const mapLink   = mapsUrl || `https://maps.google.com/maps?q=${lat},${lon}`;
-
-  if (email) {
-    try {
-      MailApp.sendEmail({
-        to: email,
-        subject: `📍 ${dogName} has been found — location inside`,
-        htmlBody: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2 style="color:#D4572A">Someone found ${dogName}! 🐾</h2>
-            <p>A finder shared their location using ${dogName}'s Pip Smart Tag.</p>
-            <p style="margin:20px 0">
-              <a href="${mapLink}" style="background:#D4572A;color:white;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:bold;display:inline-block">
-                📍 See Where They Are
-              </a>
-            </p>
-            <p style="color:#666">Coordinates: ${lat}, ${lon}</p>
-            <p>Head there now — ${dogName} is waiting! 🚗</p>
-            <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
-            <p style="color:#999;font-size:12px">Pip Smart Tags — No matter where they roam, Pip will find the way home.</p>
-          </div>
-        `
-      });
-    } catch (err) {
-      Logger.log('Email error: ' + err.message);
+    body {
+      background-color: var(--cream);
+      background-image:
+        radial-gradient(ellipse at top left,    rgba(32,176,144,.12) 0%, transparent 55%),
+        radial-gradient(ellipse at top right,   rgba(224,40,120,.10) 0%, transparent 55%),
+        radial-gradient(ellipse at bottom left, rgba(248,192,0,.10)  0%, transparent 55%),
+        radial-gradient(ellipse at bottom right,rgba(152,64,216,.10) 0%, transparent 55%),
+        radial-gradient(circle, rgba(53,24,5,.05) 1.2px, transparent 1.2px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 20px 20px;
+      color: var(--brown);
+      font-family: 'Nunito', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-  }
 
-  return { success: true };
-}
+    .container { max-width: 520px; width: 100%; }
 
-// ====================================================
-//  FOUND NOTIFICATION
-// ====================================================
-function handleFound(body) {
-  const { tagId } = body;
-  if (!tagId) return { error: 'Missing tagId' };
-
-  const sheet = getSheet();
-  const found = findRow(sheet, tagId);
-  if (!found) return { success: true };
-
-  const r         = found.row;
-  const email     = r[C.OWNER_EMAIL - 1];
-  const dogName   = r[C.DOG_NAME    - 1] || 'your dog';
-
-  if (email) {
-    try {
-      MailApp.sendEmail({
-        to: email,
-        subject: `✅ ${dogName} is safe — marked as found`,
-        htmlBody: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2 style="color:#5A8030">✅ ${dogName} is safe!</h2>
-            <p>Someone scanned ${dogName}'s Pip Smart Tag and marked them as safe.</p>
-            <p>Check your phone for any messages or calls from the finder.</p>
-            <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
-            <p style="color:#999;font-size:12px">Pip Smart Tags — No matter where they roam, Pip will find the way home.</p>
-          </div>
-        `
-      });
-    } catch (err) {
-      Logger.log('Email error: ' + err.message);
+    /* ── SCREENS ─────────────────────────────── */
+    #loadingScreen, #appScreen, #unregisteredScreen { display: none; }
+    #loadingScreen.active, #appScreen.active, #unregisteredScreen.active {
+      display: block;
+      animation: popIn .35s ease;
     }
-  }
+    @keyframes popIn {
+      from { opacity:0; transform:scale(.96) translateY(8px); }
+      to   { opacity:1; transform:scale(1)   translateY(0);   }
+    }
 
-  return { success: true };
+    /* ── SVG DEFS ────────────────────────────── */
+    .svg-defs { display: none; }
+
+    /* ── HEADER ──────────────────────────────── */
+    .pip-header {
+      padding: 14px 14px 8px;
+      position: relative;
+    }
+    /* sunray wash behind frame */
+    .pip-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: conic-gradient(
+        from 270deg,
+        rgba(240,80,48,.12) 0deg 40deg,
+        rgba(248,192,0,.12) 40deg 80deg,
+        rgba(32,176,144,.12) 80deg 120deg,
+        rgba(224,40,120,.10) 120deg 160deg,
+        rgba(152,64,216,.10) 160deg 200deg,
+        rgba(48,168,224,.10) 200deg 240deg,
+        rgba(240,80,48,.10) 240deg 280deg,
+        rgba(248,192,0,.10) 280deg 320deg,
+        rgba(32,176,144,.10) 320deg 360deg
+      );
+      pointer-events: none;
+    }
+    .pip-frame {
+      border: 4px solid var(--teal);
+      border-radius: 20px;
+      padding: 18px 18px 14px;
+      position: relative;
+      text-align: center;
+      background: rgba(245,234,213,.88);
+      backdrop-filter: blur(2px);
+    }
+    /* corner flowers */
+    .pip-corner {
+      position: absolute;
+      width: 30px; height: 30px;
+      pointer-events: none;
+    }
+    .pip-corner.tl { top:-8px; left:-8px; }
+    .pip-corner.tr { top:-8px; right:-8px; }
+    .pip-corner.bl { bottom:-8px; left:-8px; }
+    .pip-corner.br { bottom:-8px; right:-8px; }
+    /* badge */
+    .pip-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--teal);
+      color: #fff;
+      font-family: 'Fredoka One', cursive;
+      font-size: 12px;
+      letter-spacing: 1px;
+      padding: 5px 16px;
+      border-radius: 999px;
+      border: 2.5px solid var(--brown);
+      box-shadow: 2px 2px 0 var(--brown);
+      margin-bottom: 8px;
+    }
+    .pip-badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+      flex-shrink: 0;
+    }
+    /* wordmark */
+    .pip-wordmark {
+      font-family: 'Fredoka One', cursive;
+      font-size: 72px;
+      color: var(--pink);
+      -webkit-text-stroke: 4px var(--brown);
+      paint-order: stroke fill;
+      letter-spacing: 10px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    /* sparkle row */
+    .sparkle-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0;
+    }
+    .pip-slogan {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: var(--brown-mid);
+      font-style: italic;
+    }
+
+    /* ── LOADING ─────────────────────────────── */
+    .loading-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 200px);
+      gap: 22px;
+      padding: 20px;
+    }
+    .paw-loader { animation: pawBounce 1.1s ease-in-out infinite; }
+    @keyframes pawBounce {
+      0%,100% { transform: translateY(0)  rotate(-10deg) scale(1);   }
+      50%      { transform: translateY(-16px) rotate(10deg) scale(1.1); }
+    }
+    .loading-txt {
+      font-family: 'Fredoka One', cursive;
+      font-size: 24px;
+      color: var(--teal);
+      -webkit-text-stroke: 1.5px var(--brown);
+      paint-order: stroke fill;
+    }
+
+    /* ── UNREGISTERED ────────────────────────── */
+    .unreg-body {
+      text-align: center;
+      padding: 40px 28px 48px;
+    }
+    .unreg-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 30px;
+      color: var(--coral);
+      -webkit-text-stroke: 2px var(--brown);
+      paint-order: stroke fill;
+      margin: 16px 0 14px;
+    }
+    .unreg-body p {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--brown-mid);
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    /* ── PROFILE ─────────────────────────────── */
+    .profile-section {
+      text-align: center;
+      padding: 22px 20px 10px;
+      position: relative;
+    }
+    /* rainbow starburst ring */
+    .portrait-burst {
+      width: 158px;
+      height: 158px;
+      border-radius: 50%;
+      background: conic-gradient(
+        var(--gold)   0deg 45deg,
+        #fff          45deg 90deg,
+        var(--teal)   90deg 135deg,
+        #fff          135deg 180deg,
+        var(--pink)   180deg 225deg,
+        #fff          225deg 270deg,
+        var(--coral)  270deg 315deg,
+        #fff          315deg 360deg
+      );
+      padding: 7px;
+      border: 3.5px solid var(--brown);
+      box-shadow: 5px 5px 0 var(--brown);
+      margin: 0 auto 16px;
+    }
+    .portrait-burst img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #fff;
+      background: var(--teal-lt);
+      display: block;
+    }
+    .dog-name {
+      font-family: 'Fredoka One', cursive;
+      font-size: 44px;
+      color: var(--teal);
+      -webkit-text-stroke: 3px var(--brown);
+      paint-order: stroke fill;
+      line-height: 1.05;
+      margin-bottom: 4px;
+    }
+    .dog-breed {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--brown-mid);
+      margin-bottom: 12px;
+    }
+    .lost-pill {
+      display: inline-block;
+      padding: 7px 20px;
+      border-radius: 999px;
+      background: var(--pink-lt);
+      border: 2.5px solid var(--pink);
+      color: var(--pink-dk);
+      font-family: 'Fredoka One', cursive;
+      font-size: 13px;
+      letter-spacing: .5px;
+      box-shadow: 3px 3px 0 var(--brown);
+    }
+
+    /* flower divider row */
+    .flower-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0 4px;
+    }
+    .flower-row svg { flex-shrink: 0; }
+
+    /* ── TABS ────────────────────────────────── */
+    .tab-nav {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px 0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px 10px;
+      border: 3px solid var(--brown);
+      border-radius: 14px;
+      font-family: 'Fredoka One', cursive;
+      font-size: 16px;
+      cursor: pointer;
+      background: var(--card);
+      color: var(--brown);
+      box-shadow: 4px 4px 0 var(--brown);
+      transition: transform .1s, box-shadow .1s, background .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab-btn.active {
+      background: var(--teal);
+      color: #fff;
+      transform: translate(3px,3px);
+      box-shadow: 1px 1px 0 var(--brown);
+    }
+    .tab-btn:not(.active):hover { background: var(--teal-lt); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: popIn .2s ease; }
+
+    /* ── CARDS ───────────────────────────────── */
+    .card-section { padding: 14px 18px 4px; }
+    .card {
+      border-radius: 18px;
+      border: 3px solid var(--brown);
+      box-shadow: 5px 5px 0 var(--brown);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    /* colored header band */
+    .card-head {
+      padding: 11px 18px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .ch-teal   { background: var(--teal); }
+    .ch-pink   { background: var(--pink); }
+    .ch-coral  { background: var(--coral); }
+    .ch-gold   { background: var(--gold); }
+    .ch-purple { background: var(--purple); }
+    .ch-sage   { background: var(--sage); }
+    .card-head-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 16px;
+      color: #fff;
+      text-shadow: 1px 1px 0 rgba(0,0,0,.25);
+    }
+    .ch-gold .card-head-title { color: var(--brown); text-shadow: none; }
+    /* card body — tinted bg matching header */
+    .card-body { padding: 6px 18px 16px; }
+    .cb-teal   { background: var(--teal-lt); }
+    .cb-pink   { background: var(--pink-lt); }
+    .cb-coral  { background: var(--coral-lt); }
+    .cb-gold   { background: var(--gold-lt); }
+    .cb-purple { background: var(--purple-lt); }
+    .cb-sage   { background: var(--sage-lt); }
+
+    /* field rows */
+    .field-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 2px dashed rgba(53,24,5,.12);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .field-row:last-child { border-bottom: none; }
+    .field-label {
+      font-family: 'Fredoka One', cursive;
+      font-size: 12px;
+      letter-spacing: .5px;
+      color: var(--teal-dk);
+      min-width: 82px;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+    .field-value { color: var(--brown); font-weight: 700; flex: 1; }
+    a.field-value { color: var(--teal-dk); text-decoration: none; font-weight: 800; }
+    .address-block {
+      padding: 10px 0 4px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--brown);
+      line-height: 1.7;
+    }
+
+    /* ── BUTTONS ─────────────────────────────── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px 20px;
+      margin-bottom: 12px;
+      border-radius: var(--r);
+      border: 3px solid var(--brown);
+      box-shadow: 4px 4px 0 var(--brown);
+      font-family: 'Fredoka One', cursive;
+      font-size: 17px;
+      letter-spacing: .3px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      color: #fff;
+      background: var(--teal);
+      transition: transform .08s, box-shadow .08s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active {
+      transform: translate(3px,3px);
+      box-shadow: 1px 1px 0 var(--brown);
+    }
+    .btn:hover:not(:active) { filter: brightness(1.06); }
+
+    .btn-pink   { background: var(--pink); }
+    .btn-coral  { background: var(--coral); }
+    .btn-gold   { background: var(--gold);   color: var(--brown); }
+    .btn-sage   { background: var(--sage); }
+    .btn-purple { background: var(--purple); }
+    .btn-sky    { background: var(--sky); }
+    .btn-cream  { background: var(--card); color: var(--brown); }
+    .btn-wa     { background: #25d366; }
+    .btn-insta  { background: linear-gradient(135deg,#f58529,#dd2a7b 50%,#8134af); }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .btn-row .btn { margin-bottom: 0; }
+    .btn-sm { padding: 11px 12px; font-size: 15px; }
+
+    /* ── GPS STATUS ──────────────────────────── */
+    #status {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--teal-dk);
+      min-height: 18px;
+      margin: 4px 0;
+    }
+
+    /* ── FINDER ──────────────────────────────── */
+    .finder-section { padding: 4px 18px 18px; }
+    .finder-divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 16px 0 14px;
+    }
+    .finder-divider hr {
+      flex: 1;
+      border: none;
+      border-top: 3px dashed var(--teal-lt);
+    }
+    .finder-divider-label {
+      font-family: 'Fredoka One', cursive;
+      font-size: 14px;
+      color: var(--teal-dk);
+      white-space: nowrap;
+    }
+
+    .share-row {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .share-row.open { display: grid; }
+    .share-row .btn { margin-bottom: 0; font-size: 14px; padding: 10px 8px; }
+
+    #octoExtraStatus {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--teal-dk);
+      min-height: 18px;
+      margin-top: 6px;
+    }
+
+    /* ── EDIT BAR ────────────────────────────── */
+    .edit-bar {
+      margin: 4px 18px 20px;
+      padding: 13px 18px;
+      border-radius: 18px;
+      border: 3px solid var(--brown);
+      background: var(--gold-lt);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 4px 4px 0 var(--brown);
+    }
+    .edit-bar-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--brown);
+    }
+    .edit-bar-link {
+      font-family: 'Fredoka One', cursive;
+      font-size: 14px;
+      color: #fff;
+      text-decoration: none;
+      padding: 7px 16px;
+      border-radius: 999px;
+      background: var(--coral);
+      border: 2.5px solid var(--brown);
+      box-shadow: 3px 3px 0 var(--brown);
+      transition: transform .08s, box-shadow .08s;
+      flex-shrink: 0;
+    }
+    .edit-bar-link:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--brown); }
+
+    /* ── FOOTER ──────────────────────────────── */
+    .pip-footer {
+      text-align: center;
+      padding: 10px 20px 32px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--brown-mid);
+    }
+    .pip-footer a { color: var(--teal); font-weight: 900; text-decoration: none; }
+
+    @media (max-width:380px) {
+      .pip-wordmark { font-size: 58px; }
+      .dog-name     { font-size: 36px; }
+      .btn          { font-size: 15px; padding: 12px 12px; }
+      .card-section, .finder-section { padding-left: 14px; padding-right: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SVG symbol defs -->
+<svg class="svg-defs" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="sparkle" viewBox="0 0 16 16">
+    <path d="M8 0 L9.3 6.7 L16 8 L9.3 9.3 L8 16 L6.7 9.3 L0 8 L6.7 6.7Z" fill="currentColor"/>
+  </symbol>
+  <symbol id="flower" viewBox="0 0 32 32">
+    <ellipse cx="16" cy="5.5" rx="4.5" ry="6.5" fill="currentColor"/>
+    <ellipse cx="16" cy="5.5" rx="4.5" ry="6.5" fill="currentColor" transform="rotate(60 16 16)"/>
+    <ellipse cx="16" cy="5.5" rx="4.5" ry="6.5" fill="currentColor" transform="rotate(120 16 16)"/>
+    <ellipse cx="16" cy="5.5" rx="4.5" ry="6.5" fill="currentColor" transform="rotate(180 16 16)"/>
+    <ellipse cx="16" cy="5.5" rx="4.5" ry="6.5" fill="currentColor" transform="rotate(240 16 16)"/>
+    <ellipse cx="16" cy="5.5" rx="4.5" ry="6.5" fill="currentColor" transform="rotate(300 16 16)"/>
+    <circle cx="16" cy="16" r="6.5" fill="#fff"/>
+    <circle cx="16" cy="16" r="4"   fill="currentColor" opacity=".7"/>
+  </symbol>
+  <symbol id="flower-sm" viewBox="0 0 22 22">
+    <ellipse cx="11" cy="4" rx="3" ry="4.5" fill="currentColor"/>
+    <ellipse cx="11" cy="4" rx="3" ry="4.5" fill="currentColor" transform="rotate(60 11 11)"/>
+    <ellipse cx="11" cy="4" rx="3" ry="4.5" fill="currentColor" transform="rotate(120 11 11)"/>
+    <ellipse cx="11" cy="4" rx="3" ry="4.5" fill="currentColor" transform="rotate(180 11 11)"/>
+    <ellipse cx="11" cy="4" rx="3" ry="4.5" fill="currentColor" transform="rotate(240 11 11)"/>
+    <ellipse cx="11" cy="4" rx="3" ry="4.5" fill="currentColor" transform="rotate(300 11 11)"/>
+    <circle cx="11" cy="11" r="4.5" fill="#fff"/>
+    <circle cx="11" cy="11" r="2.8" fill="currentColor" opacity=".65"/>
+  </symbol>
+  <symbol id="paw" viewBox="0 0 56 56">
+    <ellipse cx="28" cy="36" rx="13" ry="11" fill="currentColor"/>
+    <ellipse cx="12" cy="24" rx="5.5" ry="7"  fill="currentColor"/>
+    <ellipse cx="21" cy="17" rx="5.5" ry="7"  fill="currentColor"/>
+    <ellipse cx="35" cy="17" rx="5.5" ry="7"  fill="currentColor"/>
+    <ellipse cx="44" cy="24" rx="5.5" ry="7"  fill="currentColor"/>
+  </symbol>
+</svg>
+
+<!-- helper: reusable header markup as a JS template so we don't repeat 3× -->
+<script>
+function headerHTML() {
+  return `
+  <div class="pip-frame">
+    <svg class="pip-corner tl" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><use href="#flower-sm" color="#e02878"/></svg>
+    <svg class="pip-corner tr" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><use href="#flower-sm" color="#20b090"/></svg>
+    <svg class="pip-corner bl" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><use href="#flower-sm" color="#f8c000"/></svg>
+    <svg class="pip-corner br" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><use href="#flower-sm" color="#9840d8"/></svg>
+    <div class="pip-badge"><span class="pip-badge-dot"></span>Smart Pet Scout<span class="pip-badge-dot"></span></div>
+    <div class="pip-wordmark">PIP</div>
+    <div class="sparkle-row">
+      <svg width="13" height="13" viewBox="0 0 16 16"><use href="#sparkle" color="#f8c000"/></svg>
+      <svg width="20" height="20" viewBox="0 0 32 32"><use href="#flower" color="#f05030"/></svg>
+      <svg width="11" height="11" viewBox="0 0 16 16"><use href="#sparkle" color="#e02878"/></svg>
+      <svg width="20" height="20" viewBox="0 0 32 32"><use href="#flower" color="#9840d8"/></svg>
+      <svg width="13" height="13" viewBox="0 0 16 16"><use href="#sparkle" color="#20b090"/></svg>
+      <svg width="20" height="20" viewBox="0 0 32 32"><use href="#flower" color="#f8c000"/></svg>
+      <svg width="11" height="11" viewBox="0 0 16 16"><use href="#sparkle" color="#f05030"/></svg>
+    </div>
+    <p class="pip-slogan">Wherever they roam, Pip knows the way home</p>
+  </div>`;
 }
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.pip-header').forEach(function(h){ h.innerHTML = headerHTML(); });
+});
+</script>
 
-// ====================================================
-//  SEND EDIT LINK EMAIL (on registration)
-// ====================================================
-function sendEditEmail(to, ownerName, dogName, editUrl, tagId) {
-  const tagUrl = `${SITE_URL}/?tag=${tagId}`;
-  try {
-    MailApp.sendEmail({
-      to,
-      subject: `🐾 ${dogName}'s Pip Smart Tag is live!`,
-      htmlBody: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-          <h2 style="color:#D4572A">Hi ${ownerName}! ${dogName}'s tag is ready 🎉</h2>
-          <p>${dogName}'s Pip Smart Tag is live. If they're ever lost, anyone who scans the tag will see their profile and be able to contact you instantly.</p>
 
-          <h3 style="color:#2D1B0E;margin-top:24px">🔐 Your Private Edit Link</h3>
-          <p>Use this anytime to update ${dogName}'s details — new vet, new address, new photo. <strong>Keep this email.</strong></p>
-          <p style="margin:20px 0">
-            <a href="${editUrl}" style="background:#D4572A;color:white;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:bold;display:inline-block">
-              ✏️ Edit ${dogName}'s Tag
-            </a>
-          </p>
-          <p style="color:#888;font-size:12px;word-break:break-all">Or copy this URL: ${editUrl}</p>
+<!-- ══════════════════════════════════════════
+     LOADING SCREEN
+══════════════════════════════════════════ -->
+<div id="loadingScreen" class="container active">
+  <div class="pip-header"></div>
+  <div class="loading-body">
+    <svg class="paw-loader" width="80" height="80" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+      <use href="#paw" color="#20b090"/>
+    </svg>
+    <p class="loading-txt">Finding your pup...</p>
+    <div class="sparkle-row" style="margin-top:-8px">
+      <svg width="14" height="14" viewBox="0 0 16 16"><use href="#sparkle" color="#e02878"/></svg>
+      <svg width="22" height="22" viewBox="0 0 32 32"><use href="#flower" color="#f8c000"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16"><use href="#sparkle" color="#20b090"/></svg>
+    </div>
+  </div>
+</div>
 
-          <h3 style="color:#2D1B0E;margin-top:24px">🔗 Your Tag's Public Link</h3>
-          <p>This is the link anyone sees when they scan the tag:</p>
-          <p><a href="${tagUrl}" style="color:#3D8A7A">${tagUrl}</a></p>
 
-          <div style="background:#FFF8E8;border:2px solid #E8B830;border-radius:12px;padding:16px;margin-top:24px">
-            <strong>⚠️ Keep your edit link private.</strong><br>
-            Anyone with that link can change your dog's details. Don't share it.
-          </div>
+<!-- ══════════════════════════════════════════
+     UNREGISTERED SCREEN
+══════════════════════════════════════════ -->
+<div id="unregisteredScreen" class="container">
+  <div class="pip-header"></div>
+  <div class="unreg-body">
+    <svg width="84" height="84" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" opacity=".2">
+      <use href="#paw" color="#351805"/>
+    </svg>
+    <h2 class="unreg-title">Tag Not Set Up Yet!</h2>
+    <p>This Pip Smart Tag hasn't been linked to a dog yet. Register it now to keep your companion safe wherever the trail leads.</p>
+    <a id="register-btn" href="#" class="btn btn-coral">Register this tag</a>
+  </div>
+  <div class="pip-footer">Powered by <a href="#">Pip Smart Tags</a></div>
+</div>
 
-          <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
-          <p style="color:#999;font-size:12px">Pip Smart Tags — No matter where they roam, Pip will find the way home.</p>
+
+<!-- ══════════════════════════════════════════
+     APP SCREEN
+══════════════════════════════════════════ -->
+<div id="appScreen" class="container">
+
+  <div class="pip-header"></div>
+
+  <!-- Profile -->
+  <div class="profile-section">
+    <div class="portrait-burst">
+      <img id="ui-photo" src="" alt="Dog photo" onerror="this.onerror=null;this.src=''">
+    </div>
+    <h1 id="ui-title" class="dog-name"><span id="ui-name"></span></h1>
+    <p class="dog-breed"><span id="ui-breed"></span></p>
+    <div class="lost-pill">May be lost &mdash; please help!</div>
+
+    <!-- mini flower row under profile -->
+    <div class="flower-row">
+      <svg width="18" height="18" viewBox="0 0 32 32"><use href="#flower" color="#e02878"/></svg>
+      <svg width="12" height="12" viewBox="0 0 16 16"><use href="#sparkle" color="#f8c000"/></svg>
+      <svg width="18" height="18" viewBox="0 0 32 32"><use href="#flower" color="#20b090"/></svg>
+      <svg width="12" height="12" viewBox="0 0 16 16"><use href="#sparkle" color="#f05030"/></svg>
+      <svg width="18" height="18" viewBox="0 0 32 32"><use href="#flower" color="#9840d8"/></svg>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('about')">About Me</button>
+    <button class="tab-btn" onclick="switchTab('emergency')">Emergency</button>
+  </div>
+
+  <!-- ── About tab ── -->
+  <div id="about" class="tab-content active">
+    <div class="card-section">
+      <div class="card">
+        <div class="card-head ch-teal">
+          <svg width="18" height="18" viewBox="0 0 56 56"><use href="#paw" color="rgba(255,255,255,.75)"/></svg>
+          <span class="card-head-title">All About Me</span>
         </div>
-      `
-    });
-  } catch (err) {
-    Logger.log('sendEditEmail error: ' + err.message);
-  }
-}
+        <div class="card-body cb-teal">
+          <div class="field-row">
+            <span class="field-label">Loves</span>
+            <span class="field-value" id="ui-likes"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Quirks</span>
+            <span class="field-value" id="ui-quirks"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Birthday</span>
+            <span class="field-value" id="ui-birthday"></span>
+          </div>
+        </div>
+      </div>
 
-// ====================================================
-//  UTILITIES
-// ====================================================
-function respond(data) {
-  const output = ContentService.createTextOutput(JSON.stringify(data));
-  output.setMimeType(ContentService.MimeType.JSON);
-  return output;
-}
+      <a id="ui-insta-btn" href="#" target="_blank" class="btn btn-insta" style="display:none">Follow on Instagram</a>
+      <a id="ui-edit-btn"  href="#"                 class="btn btn-cream"  style="display:none">Edit my profile</a>
+    </div>
+  </div>
 
-function formatDateForApi(val) {
-  if (!val) return '';
-  try {
-    if (val instanceof Date) {
-      return Utilities.formatDate(val, 'UTC', 'yyyy-MM-dd');
+  <!-- ── Emergency tab ── -->
+  <div id="emergency" class="tab-content">
+    <div class="card-section">
+
+      <!-- address -->
+      <div class="card">
+        <div class="card-head ch-coral">
+          <svg width="14" height="14" viewBox="0 0 16 16"><use href="#sparkle" color="rgba(255,255,255,.85)"/></svg>
+          <span class="card-head-title">Home Address</span>
+        </div>
+        <div class="card-body cb-coral">
+          <p class="address-block" id="ui-address"></p>
+        </div>
+      </div>
+
+      <!-- medical -->
+      <div class="card">
+        <div class="card-head ch-pink">
+          <svg width="14" height="14" viewBox="0 0 16 16"><use href="#sparkle" color="rgba(255,255,255,.85)"/></svg>
+          <span class="card-head-title">Medical Info</span>
+        </div>
+        <div class="card-body cb-pink">
+          <div class="field-row">
+            <span class="field-label">Microchip</span>
+            <span class="field-value" id="ui-microchip"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Status</span>
+            <span class="field-value" id="ui-spayed"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Notes</span>
+            <span class="field-value" id="ui-medNotes"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Vet</span>
+            <span class="field-value" id="ui-vetName"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Vet phone</span>
+            <a id="ui-vetPhoneLink" href="#" class="field-value"><span id="ui-vetPhone"></span></a>
+          </div>
+        </div>
+      </div>
+
+      <!-- contact -->
+      <a id="ui-whatsapp" href="#" target="_blank" class="btn btn-wa">WhatsApp the owner</a>
+      <div class="btn-row">
+        <a id="ui-call" href="#" class="btn btn-teal btn-sm" style="background:var(--teal)">Call owner</a>
+        <a id="ui-text" href="#" class="btn btn-sky  btn-sm">Text owner</a>
+      </div>
+
+      <!-- GPS -->
+      <button id="locBtn" class="btn btn-purple" onclick="getLocation()">Share my location with owner</button>
+      <p id="status"></p>
+
+    </div>
+  </div><!-- /emergency -->
+
+  <!-- Finder actions -->
+  <div class="finder-section">
+    <div class="finder-divider">
+      <hr>
+      <svg width="22" height="22" viewBox="0 0 32 32"><use href="#flower" color="#e02878"/></svg>
+      <span class="finder-divider-label">Finder Options</span>
+      <svg width="22" height="22" viewBox="0 0 32 32"><use href="#flower" color="#20b090"/></svg>
+      <hr>
+    </div>
+
+    <button id="octoSosBtn" class="btn btn-gold" style="margin-bottom:12px">Share SOS alert</button>
+
+    <div id="octoShareRow" class="share-row">
+      <button id="shX"  class="btn btn-sm" style="background:#000;color:#fff">Post on X</button>
+      <button id="shFb" class="btn btn-sm" style="background:#1877F2;color:#fff">Facebook</button>
+      <button id="shWa" class="btn btn-wa btn-sm">WhatsApp</button>
+      <button id="shIg" class="btn btn-insta btn-sm">Instagram</button>
+    </div>
+
+    <button id="octoSafeBtn" class="btn btn-sage" style="margin-bottom:12px">This dog is safe &mdash; notify owner</button>
+
+    <div class="btn-row">
+      <button id="octoVetBtn" class="btn btn-cream btn-sm">Find nearest vet</button>
+      <button id="octoQrBtn"  class="btn btn-cream btn-sm">Show QR code</button>
+    </div>
+
+    <p id="octoExtraStatus"></p>
+  </div>
+
+  <!-- Edit bar -->
+  <div class="edit-bar">
+    <span class="edit-bar-label">Are you the owner?</span>
+    <a href="#" id="owner-edit-hidden-trigger" class="edit-bar-link">Edit details</a>
+  </div>
+
+  <div class="pip-footer">Powered by <a href="#">Pip Smart Tags</a></div>
+
+</div><!-- /appScreen -->
+
+
+<!-- ══════════════════════════════════════════
+     JS — original logic, fully intact
+══════════════════════════════════════════ -->
+<script>
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvgggHlJYy2f0Bmmbg2876YlFh5bnxLiycjs9BWvAcR6prLF5_ftxWyRaJSERKOlXUxw/exec";
+  let globalOwnerEmail = "", globalDogName = "";
+
+  window.onload = function() {
+    const p = new URLSearchParams(location.search);
+    const tagId = p.get('id');
+    const registerBtn = document.getElementById("register-btn");
+    if (!tagId) {
+      registerBtn.href = SCRIPT_URL + "?manage=NEW";
+      showScreen("unregisteredScreen"); return;
     }
-    return String(val);
-  } catch { return ''; }
-}
+    registerBtn.href = SCRIPT_URL + "?manage=" + encodeURIComponent(tagId);
+    fetch(`${SCRIPT_URL}?action=getProfile&id=${encodeURIComponent(tagId)}`)
+      .then(r => r.json())
+      .then(d => d.error ? showScreen("unregisteredScreen") : buildProfile(d))
+      .catch(() => { document.getElementById("status").textContent = "Error loading — check your connection."; showScreen("unregisteredScreen"); });
+  };
+
+  function buildProfile(d) {
+    document.getElementById("ui-name").innerText    = d.dogName;
+    document.getElementById("ui-breed").innerText   = d.breed;
+    document.getElementById("ui-likes").innerText   = d.likes;
+    document.getElementById("ui-quirks").innerText  = d.quirks;
+    let bday = new Date(d.birthday);
+    document.getElementById("ui-birthday").innerText = isNaN(bday) ? d.birthday : bday.toLocaleDateString('en-GB');
+    document.getElementById("ui-address").innerText   = d.address      || "Not provided";
+    document.getElementById("ui-microchip").innerText = d.microchip    || "N/A";
+    document.getElementById("ui-spayed").innerText    = d.spayed       || "Unknown";
+    document.getElementById("ui-medNotes").innerText  = d.medicalNotes || "None";
+    document.getElementById("ui-vetName").innerText   = d.vetName      || "N/A";
+    document.getElementById("ui-vetPhone").innerText  = d.vetPhone     || "N/A";
+    if (d.vetPhone) document.getElementById("ui-vetPhoneLink").href = "tel:" + d.vetPhone;
+
+    let ph = d.ownerPhone ? String(d.ownerPhone).replace(/\D/g,'') : "";
+    document.getElementById("ui-whatsapp").href = `https://wa.me/${ph}?text=Hi%20${d.ownerName},%20I%20found%20${d.dogName}!`;
+    document.getElementById("ui-call").href     = "tel:" + ph;
+    document.getElementById("ui-text").href     = `sms:${ph}?&body=Hi%20${d.ownerName},%20I%20found%20${d.dogName}!`;
+
+    if (d.instagram && d.instagram.includes("http")) {
+      let ib = document.getElementById("ui-insta-btn");
+      ib.href = d.instagram; ib.style.display = "block";
+    }
+    globalOwnerEmail = d.ownerEmail; globalDogName = d.dogName;
+
+    let photo = d.photoUrl;
+    if (photo && photo.includes("drive.google.com")) {
+      let m = photo.match(/id=([a-zA-Z0-9_-]+)/) || photo.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (m) photo = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`;
+    }
+    if (photo) document.getElementById("ui-photo").src = photo;
+
+    try {
+      let el = document.getElementById("ui-edit-btn");
+      if (el) {
+        let ek = d.ownerKey ? "&key=" + encodeURIComponent(d.ownerKey) : "";
+        let id = new URLSearchParams(location.search).get("id") || "";
+        el.href = SCRIPT_URL + "?manage=" + encodeURIComponent(id) + ek;
+        el.style.display = "block";
+        let bar = document.getElementById("owner-edit-hidden-trigger");
+        if (bar) bar.href = el.href;
+      }
+    } catch(e) {}
+    showScreen("appScreen");
+  }
+
+  function getLocation() {
+    document.getElementById("status").textContent = "Getting your location...";
+    navigator.geolocation
+      ? navigator.geolocation.getCurrentPosition(sendPos, gpsErr)
+      : (document.getElementById("status").textContent = "Location not supported.");
+  }
+  function sendPos(p) {
+    document.getElementById("status").textContent = "Sending...";
+    let lat = p.coords.latitude, lon = p.coords.longitude;
+    fetch(SCRIPT_URL + "?lat="+lat+"&lon="+lon+"&email="+encodeURIComponent(globalOwnerEmail)+"&dog="+encodeURIComponent(globalDogName), {mode:'no-cors'})
+      .then(done).catch(done);
+    function done(){ document.getElementById("status").textContent = "Location sent — owner is on the way!"; document.getElementById("locBtn").style.display="none"; }
+  }
+  function gpsErr() { document.getElementById("status").textContent = "Access denied — please call the owner directly."; }
+
+  function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+  }
+  function showScreen(id) {
+    ["loadingScreen","appScreen","unregisteredScreen"].forEach(s => document.getElementById(s).classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+</script>
+
+
+<!-- ══════════════════════════════════════════
+     FINDER ACTIONS
+══════════════════════════════════════════ -->
+<script>
+(function(){
+  var SU = "https://script.google.com/macros/s/AKfycbwvgggHlJYy2f0Bmmbg2876YlFh5bnxLiycjs9BWvAcR6prLF5_ftxWyRaJSERKOlXUxw/exec";
+  var id = new URLSearchParams(location.search).get("id")||"";
+  var st = document.getElementById("octoExtraStatus");
+  var sr = document.getElementById("octoShareRow");
+  var url= location.href;
+  var nm = (document.getElementById("ui-name")||{}).innerText||"my dog";
+  var tx = "Help! "+nm+" is lost. Please tap this tag if you find them: ";
+  function win(u){ window.open(u,"_blank","noopener"); }
+  document.getElementById("shX").onclick  = function(){ win("https://twitter.com/intent/tweet?text="+encodeURIComponent(tx)+"&url="+encodeURIComponent(url)); };
+  document.getElementById("shFb").onclick = function(){ win("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(url)); };
+  document.getElementById("shWa").onclick = function(){ win("https://wa.me/?text="+encodeURIComponent(tx+" "+url)); };
+  document.getElementById("shIg").onclick = function(){
+    if(navigator.share){ navigator.share({title:"Lost dog",text:tx,url:url}).catch(function(){}); }
+    else { try{navigator.clipboard.writeText(url);}catch(e){} if(st) st.textContent="Link copied — paste into Instagram!"; }
+  };
+  document.getElementById("octoSosBtn").onclick = function(){
+    if(navigator.share){ navigator.share({title:"Lost dog",text:tx,url:url}).catch(function(){}); }
+    else { sr.classList.toggle("open"); }
+  };
+  document.getElementById("octoSafeBtn").onclick = function(){
+    if(st) st.textContent="Letting the owner know...";
+    fetch(SU+"?action=safe&id="+encodeURIComponent(id))
+      .then(function(r){return r.json();})
+      .then(function(j){ if(st) st.textContent=(j&&j.ok)?"Owner notified — thank you so much!":"Notification sent!"; })
+      .catch(function(){ if(st) st.textContent="Notification sent!"; });
+  };
+  document.getElementById("octoVetBtn").onclick = function(){
+    if(st) st.textContent="Getting your location...";
+    function go(la,lo){ var u=SU+"?vet=1&id="+encodeURIComponent(id); if(la!=null) u+="&lat="+la+"&lon="+lo; location.href=u; }
+    navigator.geolocation
+      ? navigator.geolocation.getCurrentPosition(function(p){go(p.coords.latitude,p.coords.longitude);},function(){go(null,null);},{enableHighAccuracy:true,timeout:8000,maximumAge:60000})
+      : go(null,null);
+  };
+  document.getElementById("octoQrBtn").onclick = function(){ location.href=SU+"?qr=1&id="+encodeURIComponent(id); };
+})();
+</script>
+
+</body>
+</html>
