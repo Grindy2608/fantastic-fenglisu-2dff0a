@@ -677,6 +677,13 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
 
       <a id="ui-insta-btn" href="#" target="_blank" class="btn btn-insta" style="display:none">Follow on Instagram</a>
+
+      <!-- Scan stats — shown when the tag has been scanned at least once -->
+      <div id="ui-scan-stats" style="display:none;text-align:center;padding:10px 0 4px">
+        <span style="display:inline-block;background:var(--teal-lt);border:1.5px solid var(--teal);border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;color:var(--teal-dk)">
+          🐾 <span id="ui-scan-count"></span> · <span id="ui-last-scanned"></span>
+        </span>
+      </div>
     </div>
   </div>
 
@@ -891,6 +898,23 @@ document.addEventListener('DOMContentLoaded', function() {
       let ib = document.getElementById("ui-insta-btn");
       ib.href = d.instagram; ib.style.display = "block";
     }
+
+    // Scan stats pill
+    if (d.scanCount > 0) {
+      document.getElementById("ui-scan-count").textContent = "Scanned " + d.scanCount + (d.scanCount === 1 ? " time" : " times");
+      let lastText = "Last scan: just now";
+      if (d.lastScanned) {
+        let ago = Date.now() - new Date(d.lastScanned).getTime();
+        let mins = Math.floor(ago / 60000);
+        if      (mins < 2)    lastText = "Last scan: just now";
+        else if (mins < 60)   lastText = "Last scan: " + mins + " mins ago";
+        else if (mins < 1440) lastText = "Last scan: " + Math.floor(mins/60) + "h ago";
+        else                  lastText = "Last scan: " + Math.floor(mins/1440) + " days ago";
+      }
+      document.getElementById("ui-last-scanned").textContent = lastText;
+      document.getElementById("ui-scan-stats").style.display = "";
+    }
+
     globalOwnerEmail = d.ownerEmail; globalDogName = d.dogName;
 
     let photo = d.photoUrl;
@@ -1080,6 +1104,97 @@ document.addEventListener('DOMContentLoaded', function() {
   // Close modal on backdrop click
   document.getElementById("foundModal").addEventListener("click", function(e){
     if (e.target === this) window.closeFoundModal();
+  });
+})();
+</script>
+
+<!-- ══════════════════════════════════════════
+     FEEDBACK BUTTON + MODAL
+══════════════════════════════════════════ -->
+
+<!-- Floating feedback button (always visible) -->
+<button id="feedbackFloatBtn" onclick="openFeedbackModal()"
+  title="Give feedback"
+  style="position:fixed;bottom:20px;right:18px;z-index:900;
+         width:50px;height:50px;border-radius:50%;
+         background:#e02878;color:#fff;border:3px solid #351805;
+         box-shadow:3px 3px 0 #351805;font-size:22px;
+         cursor:pointer;display:flex;align-items:center;justify-content:center">
+  💬
+</button>
+
+<!-- Feedback modal -->
+<div id="feedbackModal" style="display:none;position:fixed;inset:0;background:rgba(53,24,5,.55);z-index:999;padding:20px;overflow-y:auto">
+  <div style="background:#fffdf2;border:3px solid #351805;border-radius:20px;box-shadow:6px 6px 0 #351805;max-width:420px;margin:60px auto;padding:24px">
+    <h2 style="font-family:'Fredoka One',cursive;font-size:24px;color:#20b090;margin:0 0 6px">Share your thoughts 💬</h2>
+    <p style="font-size:14px;color:#7a4018;margin-bottom:18px">Got a suggestion, spotted a bug, or just want to say hi? We read every message.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-family:'Fredoka One',cursive;font-size:13px;color:#7a4018;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Your email (optional)</label>
+        <input id="feedbackEmail" type="email" placeholder="so we can reply" autocomplete="email"
+          style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:#351805;background:#f5ead5;border:2.5px solid #7a4018;border-radius:10px;padding:10px 14px;width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-family:'Fredoka One',cursive;font-size:13px;color:#7a4018;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Message <span style="color:#e02878">*</span></label>
+        <textarea id="feedbackMsg" placeholder="What could be better? What do you love? What's missing?" rows="4"
+          style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:600;color:#351805;background:#f5ead5;border:2.5px solid #7a4018;border-radius:10px;padding:10px 14px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+      </div>
+    </div>
+    <p id="feedbackStatus" style="margin:12px 0 0;font-size:14px;font-weight:700;display:none"></p>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="submitFeedback()" id="feedbackSubmitBtn"
+        style="flex:1;padding:14px;font-family:'Fredoka One',cursive;font-size:18px;color:#fff;background:#20b090;border:3px solid #351805;border-radius:14px;box-shadow:4px 4px 0 #351805;cursor:pointer">
+        Send feedback
+      </button>
+      <button onclick="closeFeedbackModal()"
+        style="padding:14px 18px;font-family:'Fredoka One',cursive;font-size:18px;color:#351805;background:#f5ead5;border:3px solid #351805;border-radius:14px;box-shadow:4px 4px 0 #351805;cursor:pointer">
+        ✕
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var SU = "https://script.google.com/macros/s/AKfycbwvgggHlJYy2f0Bmmbg2876YlFh5bnxLiycjs9BWvAcR6prLF5_ftxWyRaJSERKOlXUxw/exec";
+  var id = new URLSearchParams(location.search).get("id") || "";
+
+  window.openFeedbackModal  = function() { document.getElementById("feedbackModal").style.display = ""; };
+  window.closeFeedbackModal = function() { document.getElementById("feedbackModal").style.display = "none"; };
+
+  window.submitFeedback = function() {
+    var msg   = (document.getElementById("feedbackMsg").value   || "").trim();
+    var email = (document.getElementById("feedbackEmail").value || "").trim();
+    var st    = document.getElementById("feedbackStatus");
+    var btn   = document.getElementById("feedbackSubmitBtn");
+
+    if (!msg) { st.textContent = "Please write a message first."; st.style.color = "#e02878"; st.style.display = ""; return; }
+
+    btn.disabled = true; btn.textContent = "Sending...";
+    st.style.display = "none";
+
+    var url = SU + "?action=feedback"
+      + "&msg="   + encodeURIComponent(msg)
+      + "&email=" + encodeURIComponent(email)
+      + "&page="  + encodeURIComponent(id ? "Profile: " + id : location.pathname);
+
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        st.textContent = "Sent! Thanks for the feedback 🙌";
+        st.style.color = "#20b090"; st.style.display = "";
+        btn.style.display = "none";
+        setTimeout(window.closeFeedbackModal, 2500);
+      })
+      .catch(function(){
+        st.textContent = "Sent! Thanks 🙌";
+        st.style.color = "#20b090"; st.style.display = "";
+        setTimeout(window.closeFeedbackModal, 2000);
+      });
+  };
+
+  document.getElementById("feedbackModal").addEventListener("click", function(e){
+    if (e.target === this) window.closeFeedbackModal();
   });
 })();
 </script>
