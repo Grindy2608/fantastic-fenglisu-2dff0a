@@ -772,9 +772,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <!-- Vet + Safe -->
       <div class="btn-row" style="margin-top:4px">
-        <button id="octoVetBtn"  class="btn btn-coral btn-sm">Find nearest vet</button>
+        <button id="octoVetBtn"  class="btn btn-coral btn-sm">🗺️ Find nearest vet</button>
         <button id="octoSafeBtn" class="btn btn-sage  btn-sm">Dog is safe &mdash; notify owner</button>
       </div>
+      <button id="firstAidBtn" class="btn" style="background:#9840d8;color:#fff;border:3px solid #351805;box-shadow:4px 4px 0 #351805;margin-top:8px">🩺 Dog first aid guide</button>
 
       <!-- I found this dog -->
       <button id="foundBtn" class="btn" style="background:#f8c000;color:#351805;border:3px solid #351805;box-shadow:4px 4px 0 #351805;margin-top:8px" onclick="openFoundModal()">🐾 I found this dog</button>
@@ -1004,12 +1005,28 @@ document.addEventListener('DOMContentLoaded', function() {
       .catch(function(){ if(st) st.textContent="Notification sent!"; });
   };
 
+  // Find nearest vet — navigate directly to Google Maps (no GAS page)
+  // Falls back to "near me" search if location is unavailable, then Maps finds it
   document.getElementById("octoVetBtn").onclick = function(){
-    if(st) st.textContent="Getting your location...";
-    function go(la,lo){ var u=SU+"?vet=1&id="+encodeURIComponent(id); if(la!=null) u+="&lat="+la+"&lon="+lo; location.href=u; }
+    if(st) st.textContent = "Getting your location...";
+    function goMaps(la, lo) {
+      if(st) st.textContent = "";
+      location.href = (la != null)
+        ? "https://www.google.com/maps/search/emergency+vet/@" + la + "," + lo + ",14z"
+        : "https://www.google.com/maps/search/emergency+vet+near+me";
+    }
     navigator.geolocation
-      ? navigator.geolocation.getCurrentPosition(function(p){go(p.coords.latitude,p.coords.longitude);},function(){go(null,null);},{enableHighAccuracy:true,timeout:8000,maximumAge:60000})
-      : go(null,null);
+      ? navigator.geolocation.getCurrentPosition(
+          function(p){ goMaps(p.coords.latitude, p.coords.longitude); },
+          function()  { goMaps(null, null); },   // on error, let Maps find location itself
+          {enableHighAccuracy:true, timeout:8000, maximumAge:60000}
+        )
+      : goMaps(null, null);
+  };
+
+  // First Aid Guide — opens the GAS vet/first-aid page with vet contacts + Pip walkie kit guide
+  document.getElementById("firstAidBtn").onclick = function(){
+    location.href = SU + "?vet=1&id=" + encodeURIComponent(id);
   };
 })();
 </script>
