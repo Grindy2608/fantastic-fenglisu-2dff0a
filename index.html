@@ -909,19 +909,32 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function getLocation() {
-    document.getElementById("status").textContent = "Getting your location...";
-    navigator.geolocation
-      ? navigator.geolocation.getCurrentPosition(sendPos, gpsErr)
-      : (document.getElementById("status").textContent = "Location not supported.");
+    let st = document.getElementById("status");
+    st.textContent = "Getting your location...";
+    if (!navigator.geolocation) {
+      st.textContent = "Location not supported on this device — please call the owner directly.";
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(sendPos, gpsErr, {
+      enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+    });
   }
   function sendPos(p) {
-    document.getElementById("status").textContent = "Sending...";
+    let st = document.getElementById("status");
+    st.textContent = "Sending location...";
     let lat = p.coords.latitude, lon = p.coords.longitude;
     fetch(SCRIPT_URL + "?lat="+lat+"&lon="+lon+"&email="+encodeURIComponent(globalOwnerEmail)+"&dog="+encodeURIComponent(globalDogName), {mode:'no-cors'})
       .then(done).catch(done);
-    function done(){ document.getElementById("status").textContent = "Location sent — owner is on the way!"; document.getElementById("locBtn").style.display="none"; }
+    function done(){ st.textContent = "✅ Location sent — the owner is on their way!"; document.getElementById("locBtn").style.display="none"; }
   }
-  function gpsErr() { document.getElementById("status").textContent = "Access denied — please call the owner directly."; }
+  function gpsErr(err) {
+    let st = document.getElementById("status");
+    if (err && err.code === 1) {
+      st.innerHTML = "Location blocked. To allow it: tap the 🔒 padlock in your browser bar → Site settings → Location → Allow. Then try again.";
+    } else {
+      st.textContent = "Couldn't get location — please call the owner directly.";
+    }
+  }
 
   function switchTab(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
