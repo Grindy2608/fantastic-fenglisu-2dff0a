@@ -285,11 +285,11 @@
     }
     .tab-btn {
       flex: 1;
-      padding: 12px 10px;
+      padding: 18px 10px;
       border: 3px solid var(--brown);
       border-radius: 14px;
       font-family: 'Fredoka One', cursive;
-      font-size: 16px;
+      font-size: 20px;
       cursor: pointer;
       background: var(--card);
       color: var(--brown);
@@ -634,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <h1 id="ui-title" class="dog-name"><span id="ui-name"></span></h1>
     <p class="dog-breed"><span id="ui-breed"></span></p>
-    <div class="lost-pill">May be lost &mdash; please help!</div>
+    <div class="lost-pill" id="ui-lost-pill" style="display:none">🚨 May be lost &mdash; please help!</div>
 
     <!-- mini flower row under profile -->
     <div class="flower-row">
@@ -677,7 +677,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
 
       <a id="ui-insta-btn" href="#" target="_blank" class="btn btn-insta" style="display:none">Follow on Instagram</a>
-      <a id="ui-edit-btn"  href="#"                 class="btn btn-cream"  style="display:none">Edit my profile</a>
     </div>
   </div>
 
@@ -726,53 +725,67 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
 
-      <!-- contact -->
+      <!-- health calendar (only shown when dates exist) -->
+      <div id="ui-health-card" class="card" style="display:none">
+        <div class="card-head ch-sage">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-head-title">Health Calendar</span>
+        </div>
+        <div class="card-body cb-sage">
+          <div id="ui-health-worming" class="field-row" style="display:none">
+            <span class="field-label">Worming due</span>
+            <span class="field-value" id="ui-worming-val"></span>
+          </div>
+          <div id="ui-health-flea" class="field-row" style="display:none">
+            <span class="field-label">Flea treatment</span>
+            <span class="field-value" id="ui-flea-val"></span>
+          </div>
+          <div id="ui-health-vaccine" class="field-row" style="display:none">
+            <span class="field-label">Vaccination due</span>
+            <span class="field-value" id="ui-vaccine-val"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- contact owner -->
       <a id="ui-whatsapp" href="#" target="_blank" class="btn btn-wa">WhatsApp the owner</a>
       <div class="btn-row">
         <a id="ui-call" href="#" class="btn btn-teal btn-sm" style="background:var(--teal)">Call owner</a>
         <a id="ui-text" href="#" class="btn btn-sky  btn-sm">Text owner</a>
       </div>
 
+      <!-- extra contacts (shown when set) -->
+      <div id="ui-contacts-extra" style="display:none">
+        <div id="ui-contact2-row" class="btn-row" style="display:none;margin-top:8px">
+          <a id="ui-contact2-call" href="#" class="btn btn-teal btn-sm" style="background:var(--teal-dk)"></a>
+          <a id="ui-contact2-wa"   href="#" target="_blank" class="btn btn-wa btn-sm"></a>
+        </div>
+        <div id="ui-contact3-row" class="btn-row" style="display:none;margin-top:8px">
+          <a id="ui-contact3-call" href="#" class="btn btn-teal btn-sm" style="background:var(--teal-dk)"></a>
+          <a id="ui-contact3-wa"   href="#" target="_blank" class="btn btn-wa btn-sm"></a>
+        </div>
+      </div>
+
       <!-- GPS -->
       <button id="locBtn" class="btn btn-purple" onclick="getLocation()">Share my location with owner</button>
       <p id="status"></p>
 
+      <!-- Vet + Safe -->
+      <div class="btn-row" style="margin-top:4px">
+        <button id="octoVetBtn"  class="btn btn-coral btn-sm">Find nearest vet</button>
+        <button id="octoSafeBtn" class="btn btn-sage  btn-sm">Dog is safe &mdash; notify owner</button>
+      </div>
+
+      <!-- I found this dog -->
+      <button id="foundBtn" class="btn" style="background:#f8c000;color:#351805;border:3px solid #351805;box-shadow:4px 4px 0 #351805;margin-top:8px" onclick="openFoundModal()">🐾 I found this dog</button>
+      <p id="octoExtraStatus"></p>
+
     </div>
   </div><!-- /emergency -->
 
-  <!-- Finder actions -->
-  <div class="finder-section">
-    <div class="finder-divider">
-      <hr>
-      <svg width="22" height="22" viewBox="0 0 32 32"><use href="#flower" color="#e02878"/></svg>
-      <span class="finder-divider-label">Finder Options</span>
-      <svg width="22" height="22" viewBox="0 0 32 32"><use href="#flower" color="#20b090"/></svg>
-      <hr>
-    </div>
-
-    <button id="octoSosBtn" class="btn btn-gold" style="margin-bottom:12px">Share SOS alert</button>
-
-    <div id="octoShareRow" class="share-row">
-      <button id="shX"  class="btn btn-sm" style="background:#000;color:#fff">Post on X</button>
-      <button id="shFb" class="btn btn-sm" style="background:#1877F2;color:#fff">Facebook</button>
-      <button id="shWa" class="btn btn-wa btn-sm">WhatsApp</button>
-      <button id="shIg" class="btn btn-insta btn-sm">Instagram</button>
-    </div>
-
-    <button id="octoSafeBtn" class="btn btn-sage" style="margin-bottom:12px">This dog is safe &mdash; notify owner</button>
-
-    <div class="btn-row">
-      <button id="octoVetBtn" class="btn btn-cream btn-sm">Find nearest vet</button>
-      <button id="octoQrBtn"  class="btn btn-cream btn-sm">Show QR code</button>
-    </div>
-
-    <p id="octoExtraStatus"></p>
-  </div>
-
-  <!-- Edit bar -->
-  <div class="edit-bar">
-    <span class="edit-bar-label">Are you the owner?</span>
-    <a href="#" id="owner-edit-hidden-trigger" class="edit-bar-link">Edit details</a>
+  <!-- Owner login (subtle — owners know it's here from their welcome email) -->
+  <div style="text-align:center;padding:6px 0 14px">
+    <a href="#" id="owner-edit-hidden-trigger" style="font-size:11px;color:#ccc;text-decoration:none;font-family:'Nunito',sans-serif;letter-spacing:.3px">Owner login</a>
   </div>
 
   <div class="pip-footer">Powered by <a href="#">Pip Smart Tags</a></div>
@@ -824,10 +837,54 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById("ui-vetPhone").innerText  = d.vetPhone     || "N/A";
     if (d.vetPhone) document.getElementById("ui-vetPhoneLink").href = "tel:" + d.vetPhone;
 
+    // Health calendar card — only show if at least one date is set
+    (function() {
+      function fmtDate(s) {
+        if (!s) return null;
+        let dt = new Date(s);
+        return isNaN(dt) ? s : dt.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+      }
+      function showField(rowId, valId, val) {
+        let row = document.getElementById(rowId);
+        let span = document.getElementById(valId);
+        if (val) { span.textContent = val; row.style.display = ''; }
+      }
+      let w = fmtDate(d.wormingDue), f = fmtDate(d.fleaDue), v = fmtDate(d.vaccineDue);
+      if (w || f || v) {
+        showField('ui-health-worming', 'ui-worming-val', w);
+        showField('ui-health-flea',    'ui-flea-val',    f);
+        showField('ui-health-vaccine', 'ui-vaccine-val', v);
+        document.getElementById('ui-health-card').style.display = '';
+      }
+    })();
+
+    // Lost mode
+    if (d.lostMode) {
+      document.getElementById("ui-lost-pill").style.display = "";
+      document.body.style.setProperty("--teal", "#e02878");
+      document.body.style.setProperty("--teal-dk", "#a81858");
+      document.body.style.setProperty("--teal-lt", "#fce0ee");
+    }
+
     let ph = d.ownerPhone ? String(d.ownerPhone).replace(/\D/g,'') : "";
     document.getElementById("ui-whatsapp").href = `https://wa.me/${ph}?text=Hi%20${d.ownerName},%20I%20found%20${d.dogName}!`;
     document.getElementById("ui-call").href     = "tel:" + ph;
     document.getElementById("ui-text").href     = `sms:${ph}?&body=Hi%20${d.ownerName},%20I%20found%20${d.dogName}!`;
+
+    // Extra contacts
+    function wireContact(rowId, callId, waId, name, phone) {
+      if (!name || !phone) return;
+      let cleanPh = String(phone).replace(/\D/g,'');
+      let row = document.getElementById(rowId);
+      document.getElementById(callId).href = "tel:" + cleanPh;
+      document.getElementById(callId).textContent = "Call " + name;
+      document.getElementById(waId).href = `https://wa.me/${cleanPh}?text=Hi%20${encodeURIComponent(name)},%20I%20found%20${encodeURIComponent(d.dogName)}!`;
+      document.getElementById(waId).textContent = "WhatsApp " + name;
+      row.style.display = "";
+      document.getElementById("ui-contacts-extra").style.display = "";
+    }
+    wireContact("ui-contact2-row","ui-contact2-call","ui-contact2-wa", d.contact2Name, d.contact2Phone);
+    wireContact("ui-contact3-row","ui-contact3-call","ui-contact3-wa", d.contact3Name, d.contact3Phone);
 
     if (d.instagram && d.instagram.includes("http")) {
       let ib = document.getElementById("ui-insta-btn");
@@ -843,15 +900,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (photo) document.getElementById("ui-photo").src = photo;
 
     try {
-      let el = document.getElementById("ui-edit-btn");
-      if (el) {
-        let ek = d.ownerKey ? "&key=" + encodeURIComponent(d.ownerKey) : "";
-        let id = new URLSearchParams(location.search).get("id") || "";
-        el.href = SCRIPT_URL + "?manage=" + encodeURIComponent(id) + ek;
-        el.style.display = "block";
-        let bar = document.getElementById("owner-edit-hidden-trigger");
-        if (bar) bar.href = el.href;
-      }
+      // Wire up the subtle owner-login link in the footer
+      let id = new URLSearchParams(location.search).get("id") || "";
+      let bar = document.getElementById("owner-edit-hidden-trigger");
+      if (bar) bar.href = SCRIPT_URL + "?manage=" + encodeURIComponent(id);
     } catch(e) {}
     showScreen("appScreen");
   }
@@ -885,6 +937,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <!-- ══════════════════════════════════════════
+     "I FOUND THIS DOG" MODAL
+══════════════════════════════════════════ -->
+<div id="foundModal" style="display:none;position:fixed;inset:0;background:rgba(53,24,5,.55);z-index:999;padding:20px;overflow-y:auto">
+  <div style="background:#fffdf2;border:3px solid #351805;border-radius:20px;box-shadow:6px 6px 0 #351805;max-width:420px;margin:40px auto;padding:24px">
+    <h2 style="font-family:'Fredoka One',cursive;font-size:24px;color:#e02878;margin:0 0 6px">You found them!</h2>
+    <p style="font-size:14px;color:#7a4018;margin-bottom:20px">Leave your details and we'll notify the owner right away.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-family:'Fredoka One',cursive;font-size:13px;color:#7a4018;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Your Name <span style="color:#e02878">*</span></label>
+        <input id="foundName" type="text" placeholder="e.g. Sarah Murphy" autocomplete="name"
+          style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:#351805;background:#f5ead5;border:2.5px solid #7a4018;border-radius:10px;padding:10px 14px;width:100%">
+      </div>
+      <div>
+        <label style="font-family:'Fredoka One',cursive;font-size:13px;color:#7a4018;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Your Phone <span style="color:#e02878">*</span></label>
+        <input id="foundPhone" type="tel" placeholder="+44..." autocomplete="tel"
+          style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:#351805;background:#f5ead5;border:2.5px solid #7a4018;border-radius:10px;padding:10px 14px;width:100%">
+      </div>
+      <div>
+        <label style="font-family:'Fredoka One',cursive;font-size:13px;color:#7a4018;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Message (optional)</label>
+        <textarea id="foundMsg" placeholder="e.g. Found near the park on Main St, dog is safe and with me" rows="3"
+          style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:600;color:#351805;background:#f5ead5;border:2.5px solid #7a4018;border-radius:10px;padding:10px 14px;width:100%;resize:vertical"></textarea>
+      </div>
+    </div>
+    <p id="foundModalStatus" style="margin:12px 0 0;font-size:14px;font-weight:700;color:#20b090;display:none"></p>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="submitFound()" id="foundSubmitBtn"
+        style="flex:1;padding:14px;font-family:'Fredoka One',cursive;font-size:18px;color:#fff;background:#e02878;border:3px solid #351805;border-radius:14px;box-shadow:4px 4px 0 #351805;cursor:pointer">
+        Notify the owner
+      </button>
+      <button onclick="closeFoundModal()"
+        style="padding:14px 18px;font-family:'Fredoka One',cursive;font-size:18px;color:#351805;background:#f5ead5;border:3px solid #351805;border-radius:14px;box-shadow:4px 4px 0 #351805;cursor:pointer">
+        ✕
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      FINDER ACTIONS
 ══════════════════════════════════════════ -->
 <script>
@@ -892,29 +982,15 @@ document.addEventListener('DOMContentLoaded', function() {
   var SU = "https://script.google.com/macros/s/AKfycbwvgggHlJYy2f0Bmmbg2876YlFh5bnxLiycjs9BWvAcR6prLF5_ftxWyRaJSERKOlXUxw/exec";
   var id = new URLSearchParams(location.search).get("id")||"";
   var st = document.getElementById("octoExtraStatus");
-  var sr = document.getElementById("octoShareRow");
-  var url= location.href;
-  var nm = (document.getElementById("ui-name")||{}).innerText||"my dog";
-  var tx = "Help! "+nm+" is lost. Please tap this tag if you find them: ";
-  function win(u){ window.open(u,"_blank","noopener"); }
-  document.getElementById("shX").onclick  = function(){ win("https://twitter.com/intent/tweet?text="+encodeURIComponent(tx)+"&url="+encodeURIComponent(url)); };
-  document.getElementById("shFb").onclick = function(){ win("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(url)); };
-  document.getElementById("shWa").onclick = function(){ win("https://wa.me/?text="+encodeURIComponent(tx+" "+url)); };
-  document.getElementById("shIg").onclick = function(){
-    if(navigator.share){ navigator.share({title:"Lost dog",text:tx,url:url}).catch(function(){}); }
-    else { try{navigator.clipboard.writeText(url);}catch(e){} if(st) st.textContent="Link copied — paste into Instagram!"; }
-  };
-  document.getElementById("octoSosBtn").onclick = function(){
-    if(navigator.share){ navigator.share({title:"Lost dog",text:tx,url:url}).catch(function(){}); }
-    else { sr.classList.toggle("open"); }
-  };
+
   document.getElementById("octoSafeBtn").onclick = function(){
     if(st) st.textContent="Letting the owner know...";
     fetch(SU+"?action=safe&id="+encodeURIComponent(id))
       .then(function(r){return r.json();})
-      .then(function(j){ if(st) st.textContent=(j&&j.ok)?"Owner notified — thank you so much!":"Notification sent!"; })
+      .then(function(j){ if(st) st.textContent="Owner notified — thank you so much!"; })
       .catch(function(){ if(st) st.textContent="Notification sent!"; });
   };
+
   document.getElementById("octoVetBtn").onclick = function(){
     if(st) st.textContent="Getting your location...";
     function go(la,lo){ var u=SU+"?vet=1&id="+encodeURIComponent(id); if(la!=null) u+="&lat="+la+"&lon="+lo; location.href=u; }
@@ -922,7 +998,59 @@ document.addEventListener('DOMContentLoaded', function() {
       ? navigator.geolocation.getCurrentPosition(function(p){go(p.coords.latitude,p.coords.longitude);},function(){go(null,null);},{enableHighAccuracy:true,timeout:8000,maximumAge:60000})
       : go(null,null);
   };
-  document.getElementById("octoQrBtn").onclick = function(){ location.href=SU+"?qr=1&id="+encodeURIComponent(id); };
+})();
+</script>
+
+<script>
+(function(){
+  var SU = "https://script.google.com/macros/s/AKfycbwvgggHlJYy2f0Bmmbg2876YlFh5bnxLiycjs9BWvAcR6prLF5_ftxWyRaJSERKOlXUxw/exec";
+  var id = new URLSearchParams(location.search).get("id")||"";
+
+  window.openFoundModal  = function() { document.getElementById("foundModal").style.display = ""; };
+  window.closeFoundModal = function() { document.getElementById("foundModal").style.display = "none"; };
+
+  window.submitFound = function() {
+    var name  = (document.getElementById("foundName").value  || "").trim();
+    var phone = (document.getElementById("foundPhone").value || "").trim();
+    var msg   = (document.getElementById("foundMsg").value   || "").trim();
+    var st    = document.getElementById("foundModalStatus");
+    var btn   = document.getElementById("foundSubmitBtn");
+
+    if (!name)  { st.textContent = "Please enter your name.";        st.style.color="#e02878"; st.style.display=""; return; }
+    if (!phone) { st.textContent = "Please enter your phone number."; st.style.color="#e02878"; st.style.display=""; return; }
+
+    btn.disabled = true; btn.textContent = "Sending...";
+    st.style.display = "none";
+
+    var url = SU + "?action=finderContact"
+      + "&id="          + encodeURIComponent(id)
+      + "&finderName="  + encodeURIComponent(name)
+      + "&finderPhone=" + encodeURIComponent(phone)
+      + "&finderMsg="   + encodeURIComponent(msg);
+
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j && j.error) {
+          st.textContent = j.error; st.style.color="#e02878"; st.style.display="";
+          btn.disabled = false; btn.textContent = "Notify the owner";
+        } else {
+          st.textContent = "Owner notified! Thank you for helping 🐾";
+          st.style.color = "#20b090"; st.style.display="";
+          btn.style.display = "none";
+          setTimeout(window.closeFoundModal, 3000);
+        }
+      })
+      .catch(function(){
+        st.textContent = "Sent! Thank you for helping."; st.style.color="#20b090"; st.style.display="";
+        setTimeout(window.closeFoundModal, 2500);
+      });
+  };
+
+  // Close modal on backdrop click
+  document.getElementById("foundModal").addEventListener("click", function(e){
+    if (e.target === this) window.closeFoundModal();
+  });
 })();
 </script>
 
