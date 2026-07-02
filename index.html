@@ -646,6 +646,9 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
   </div>
 
+  <!-- Personality chips — populated and shown by buildProfile() -->
+  <div id="ui-chips-row" style="display:none;padding:6px 16px 0;text-align:center;line-height:2"></div>
+
   <!-- Tabs -->
   <div class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('about')">About Me</button>
@@ -684,6 +687,24 @@ document.addEventListener('DOMContentLoaded', function() {
           🐾 <span id="ui-scan-count"></span> · <span id="ui-last-scanned"></span>
         </span>
       </div>
+
+      <!-- Walker / sitter notes — hidden until buildProfile() shows it -->
+      <div id="ui-walker-card" class="card" style="display:none;margin-top:14px">
+        <div class="card-head" style="background:#9840d8;border-color:#7a20c0">
+          <span style="font-size:18px">🦮</span>
+          <span class="card-head-title">Walker &amp; Sitter Notes</span>
+        </div>
+        <div class="card-body" style="border-color:#c090e8;background:#f5eeff">
+          <p id="ui-walker-notes" style="margin:0;white-space:pre-wrap;line-height:1.75;font-size:15px"></p>
+        </div>
+      </div>
+
+      <!-- Passport / info card button -->
+      <div id="ui-passport-wrap" style="display:none;text-align:center;padding:14px 0 4px">
+        <button class="btn" onclick="openPassport()" style="background:#351805;color:#f8c000;border:3px solid #351805;box-shadow:3px 3px 0 rgba(0,0,0,.25);font-size:16px;padding:13px 24px">📄 Download info card</button>
+        <p style="font-size:12px;color:#7a4018;margin:6px 0 0">Opens a print-friendly summary you can save as a PDF</p>
+      </div>
+
     </div>
   </div>
 
@@ -911,6 +932,43 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById("ui-scan-stats").style.display = "";
     }
 
+    // Personality chips
+    if (d.behaviourTags) {
+      var chipDefs = {
+        friendly:          {label:'Friendly',                emoji:'🐾', bg:'#d4f5eb', col:'#0e7a55'},
+        good_with_kids:    {label:'Good with kids',          emoji:'✅', bg:'#d4f5eb', col:'#0e7a55'},
+        good_with_dogs:    {label:'Good with other dogs',    emoji:'✅', bg:'#d4f5eb', col:'#0e7a55'},
+        good_with_cats:    {label:'Good with cats',          emoji:'✅', bg:'#d4f5eb', col:'#0e7a55'},
+        in_training:       {label:'In training',             emoji:'📚', bg:'#dce8ff', col:'#2255a8'},
+        senior:            {label:'Senior dog',              emoji:'🐾', bg:'#ece0ff', col:'#6030a0'},
+        rescue:            {label:'Rescue dog',              emoji:'🏠', bg:'#ece0ff', col:'#6030a0'},
+        assistance:        {label:'Assistance dog',          emoji:'⭐', bg:'#fff7d0', col:'#7a5800'},
+        nervous:           {label:'Can be nervous',          emoji:'🟡', bg:'#fff3cc', col:'#7a5800'},
+        pulls_on_lead:     {label:'Pulls on lead',           emoji:'🔴', bg:'#ffeacc', col:'#9a4000'},
+        reactive_on_lead:  {label:'Reactive on lead',        emoji:'⚠️', bg:'#ffeacc', col:'#9a4000'},
+        not_good_with_dogs:{label:'Not good with other dogs',emoji:'⚠️', bg:'#ffdede', col:'#9a0020'},
+        not_good_with_cats:{label:'Not good with cats',      emoji:'❌', bg:'#ffdede', col:'#9a0020'},
+      };
+      var tags = d.behaviourTags.split(',').map(function(t){return t.trim();}).filter(Boolean);
+      if (tags.length) {
+        var chipsHtml = tags.map(function(t) {
+          var def = chipDefs[t] || {label:t, emoji:'🐾', bg:'#f0f0f0', col:'#555'};
+          return '<span style="display:inline-block;background:'+def.bg+';color:'+def.col+';border:1.5px solid '+def.col+';border-radius:20px;padding:5px 13px;font-size:13px;font-weight:700;margin:3px">'+def.emoji+' '+def.label+'</span>';
+        }).join('');
+        document.getElementById('ui-chips-row').innerHTML = chipsHtml;
+        document.getElementById('ui-chips-row').style.display = '';
+      }
+    }
+
+    // Walker / sitter notes
+    if (d.walkerNotes) {
+      document.getElementById('ui-walker-notes').textContent = d.walkerNotes;
+      document.getElementById('ui-walker-card').style.display = '';
+    }
+
+    // Passport / info card button — always show once profile is loaded
+    document.getElementById('ui-passport-wrap').style.display = '';
+
     // Personalise the finder button
     let foundNameEl = document.getElementById("ui-found-dog-name");
     if (foundNameEl && d.dogName) foundNameEl.textContent = d.dogName;
@@ -931,6 +989,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (bar) bar.href = SCRIPT_URL + "?manage=" + encodeURIComponent(id);
     } catch(e) {}
     showScreen("appScreen");
+  }
+
+  // Open dog passport / info card in a new tab
+  function openPassport() {
+    var id = new URLSearchParams(window.location.search).get('id');
+    if (id) window.open(SCRIPT_URL + '?passport=' + encodeURIComponent(id), '_blank');
   }
 
   function switchTab(id) {
