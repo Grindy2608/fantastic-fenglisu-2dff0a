@@ -1108,30 +1108,59 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById("foundModal").style.display = "";
   };
 
-  // Called when finder taps the location button — explicit user gesture so Chrome prompts properly
+  // Called when finder taps the location button
   window.requestFinderLocation = function() {
     var locBtn = document.getElementById("foundLocBtn");
     var locSt  = document.getElementById("foundLocStatus");
+
     if (!navigator.geolocation) {
       if (locBtn) locBtn.style.display = "none";
       if (locSt)  { locSt.style.display = ""; locSt.style.color = "#7a4018"; locSt.textContent = "Location not supported on this device."; }
       return;
     }
-    if (locBtn) { locBtn.disabled = true; locBtn.style.opacity = "0.6"; locBtn.textContent = "📍 Getting your location…"; }
-    if (locSt)  { locSt.style.display = "none"; }
-    navigator.geolocation.getCurrentPosition(
-      function(p) {
-        finderLat = p.coords.latitude;
-        finderLon = p.coords.longitude;
-        if (locBtn) { locBtn.style.display = "none"; }
-        if (locSt)  { locSt.style.display = ""; locSt.style.color = "#20b090"; locSt.textContent = "✅ Location captured — will be sent to the owner."; }
-      },
-      function(err) {
-        if (locBtn) { locBtn.style.display = "none"; }
-        if (locSt)  { locSt.style.display = ""; locSt.style.color = "#7a4018"; locSt.textContent = "📍 Location not shared — that's OK, the message will still send."; }
-      },
-      {enableHighAccuracy:true, timeout:12000, maximumAge:0}
-    );
+
+    function doGeo() {
+      if (locBtn) { locBtn.disabled = true; locBtn.style.opacity = "0.6"; locBtn.textContent = "📍 Getting your location…"; }
+      navigator.geolocation.getCurrentPosition(
+        function(p) {
+          finderLat = p.coords.latitude;
+          finderLon = p.coords.longitude;
+          if (locBtn) locBtn.style.display = "none";
+          if (locSt)  { locSt.style.display = ""; locSt.style.color = "#20b090"; locSt.textContent = "✅ Location captured — will be sent to the owner."; }
+        },
+        function(err) {
+          if (locBtn) locBtn.style.display = "none";
+          if (locSt)  {
+            locSt.style.display = "";
+            locSt.style.color = "#7a4018";
+            locSt.textContent = (err && err.code === 1)
+              ? "📍 Location blocked — tap the padlock icon in your browser bar to allow it, or just send the alert without it."
+              : "📍 Couldn't get location — that's OK, the message will still send.";
+          }
+        },
+        {enableHighAccuracy:false, timeout:15000, maximumAge:30000}
+      );
+    }
+
+    // Check permission state first — if already denied, tell the user immediately
+    // rather than hanging. If 'prompt', show a hint to look for the browser popup.
+    if (navigator.permissions) {
+      navigator.permissions.query({name:'geolocation'}).then(function(result) {
+        if (result.state === 'denied') {
+          if (locBtn) locBtn.style.display = "none";
+          if (locSt)  { locSt.style.display = ""; locSt.style.color = "#7a4018"; locSt.textContent = "📍 Location is blocked. Tap the padlock 🔒 in your browser's address bar to allow it, then try again."; }
+        } else {
+          if (result.state === 'prompt' && locSt) {
+            locSt.style.display = "";
+            locSt.style.color = "#7a5800";
+            locSt.textContent = "👆 Look for a permission popup near the top of your screen and tap Allow.";
+          }
+          doGeo();
+        }
+      }).catch(function() { doGeo(); });
+    } else {
+      doGeo();
+    }
   };
 
   window.closeFoundModal = function() {
