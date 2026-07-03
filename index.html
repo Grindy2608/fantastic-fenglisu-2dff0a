@@ -1017,7 +1017,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <div style="background:#fffdf2;border:3px solid #351805;border-radius:20px;box-shadow:6px 6px 0 #351805;max-width:420px;margin:40px auto;padding:24px">
     <h2 style="font-family:'Fredoka One',cursive;font-size:26px;color:#e02878;margin:0 0 4px">You found <span id="ui-modal-dog-name">them</span>! 🐾</h2>
     <p style="font-size:14px;color:#7a4018;margin-bottom:6px">Leave your details and we'll alert the owner immediately.</p>
-    <p id="foundLocStatus" style="font-size:13px;font-weight:700;color:#20b090;margin-bottom:16px">📍 Getting your location in the background…</p>
+    <button id="foundLocBtn" onclick="requestFinderLocation()" style="display:block;width:100%;margin-bottom:14px;padding:11px 16px;font-family:'Fredoka One',cursive;font-size:16px;color:#20b090;background:#e8faf4;border:2.5px solid #20b090;border-radius:12px;box-shadow:3px 3px 0 #0e7a55;cursor:pointer;text-align:left">
+      📍 Share my location with the owner <span style="font-size:13px;font-weight:400;font-family:'Nunito',sans-serif">(optional but really helpful)</span>
+    </button>
+    <p id="foundLocStatus" style="font-size:13px;font-weight:700;margin-bottom:10px;margin-top:-8px;display:none"></p>
     <div style="display:flex;flex-direction:column;gap:12px">
       <div>
         <label style="font-family:'Fredoka One',cursive;font-size:13px;color:#7a4018;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Your Name <span style="color:#e02878">*</span></label>
@@ -1090,31 +1093,45 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById("foundSubmitBtn").disabled = false;
     document.getElementById("foundSubmitBtn").textContent = "Alert the owner";
 
+    // Reset location state
+    finderLat = null; finderLon = null;
+    var locBtn = document.getElementById("foundLocBtn");
+    var locSt  = document.getElementById("foundLocStatus");
+    if (locBtn) { locBtn.style.display = "block"; locBtn.disabled = false; locBtn.style.opacity = "1"; }
+    if (locSt)  { locSt.style.display = "none"; locSt.textContent = ""; }
+
     // Set dog name in modal heading
     var dogEl = document.getElementById("ui-modal-dog-name");
     var nameEl = document.getElementById("ui-found-dog-name");
     if (dogEl && nameEl) dogEl.textContent = nameEl.textContent;
 
     document.getElementById("foundModal").style.display = "";
+  };
 
-    // Silently get GPS while finder fills in the form
-    finderLat = null; finderLon = null;
-    var locSt = document.getElementById("foundLocStatus");
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        function(p) {
-          finderLat = p.coords.latitude;
-          finderLon = p.coords.longitude;
-          if (locSt) locSt.textContent = "📍 Location captured — will be included.";
-        },
-        function() {
-          if (locSt) locSt.textContent = "📍 Location not available — that's OK!";
-        },
-        {enableHighAccuracy:true, timeout:10000, maximumAge:0}
-      );
-    } else {
-      if (locSt) locSt.textContent = "";
+  // Called when finder taps the location button — explicit user gesture so Chrome prompts properly
+  window.requestFinderLocation = function() {
+    var locBtn = document.getElementById("foundLocBtn");
+    var locSt  = document.getElementById("foundLocStatus");
+    if (!navigator.geolocation) {
+      if (locBtn) locBtn.style.display = "none";
+      if (locSt)  { locSt.style.display = ""; locSt.style.color = "#7a4018"; locSt.textContent = "Location not supported on this device."; }
+      return;
     }
+    if (locBtn) { locBtn.disabled = true; locBtn.style.opacity = "0.6"; locBtn.textContent = "📍 Getting your location…"; }
+    if (locSt)  { locSt.style.display = "none"; }
+    navigator.geolocation.getCurrentPosition(
+      function(p) {
+        finderLat = p.coords.latitude;
+        finderLon = p.coords.longitude;
+        if (locBtn) { locBtn.style.display = "none"; }
+        if (locSt)  { locSt.style.display = ""; locSt.style.color = "#20b090"; locSt.textContent = "✅ Location captured — will be sent to the owner."; }
+      },
+      function(err) {
+        if (locBtn) { locBtn.style.display = "none"; }
+        if (locSt)  { locSt.style.display = ""; locSt.style.color = "#7a4018"; locSt.textContent = "📍 Location not shared — that's OK, the message will still send."; }
+      },
+      {enableHighAccuracy:true, timeout:12000, maximumAge:0}
+    );
   };
 
   window.closeFoundModal = function() {
