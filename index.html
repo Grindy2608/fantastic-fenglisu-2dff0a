@@ -57,6 +57,37 @@
 
     /* ── SCREENS ─────────────────────────────── */
     #loadingScreen, #appScreen, #unregisteredScreen { display: none; }
+    #landingScreen { display: none; }
+    #landingScreen.active { display: block; animation: popIn .35s ease; }
+    .landing-hero { text-align: center; padding: 26px 18px 10px; }
+    .landing-hero h1 {
+      font-family: 'Fredoka One', cursive; color: var(--brown);
+      font-size: 34px; line-height: 1.15; margin-bottom: 10px;
+    }
+    .landing-hero h1 span { color: var(--teal); }
+    .landing-tagline {
+      font-size: 16px; font-weight: 700; color: var(--brown-mid);
+      max-width: 320px; margin: 0 auto 18px;
+    }
+    .landing-card {
+      background: var(--card); border-radius: var(--r);
+      padding: 16px 18px; margin: 12px 14px;
+      box-shadow: 0 3px 0 rgba(53,24,5,.08);
+    }
+    .landing-card h2 {
+      font-family: 'Fredoka One', cursive; font-size: 18px;
+      color: var(--teal-dk); margin-bottom: 10px;
+    }
+    .landing-step { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; }
+    .landing-step .num {
+      flex: 0 0 30px; height: 30px; border-radius: 50%;
+      background: var(--teal); color: #fff; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .landing-step p { font-size: 14px; font-weight: 600; color: var(--brown); padding-top: 4px; }
+    .landing-feats { list-style: none; }
+    .landing-feats li { font-size: 14px; font-weight: 700; color: var(--brown); margin: 7px 0; }
+    .landing-cta { text-align: center; padding: 6px 18px 20px; }
     #loadingScreen.active, #appScreen.active, #unregisteredScreen.active {
       display: block;
       animation: popIn .35s ease;
@@ -606,6 +637,45 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- ══════════════════════════════════════════
      UNREGISTERED SCREEN
 ══════════════════════════════════════════ -->
+<div id="landingScreen" class="container">
+  <div class="pip-header"></div>
+
+  <div class="landing-hero">
+    <h1>The dog tag that <span>speaks</span> when your dog can't 🐾</h1>
+    <p class="landing-tagline">One tap of any phone shows your dog's profile, your contact details and a "help me get home" button. No app. No battery. No subscription.</p>
+  </div>
+
+  <div class="landing-cta">
+    <a href="mailto:pipknowstheway@gmail.com?subject=I%20want%20a%20Pip%20Tag" class="btn btn-coral" style="font-size:17px;padding:14px 34px">Get your Pip Tag</a>
+  </div>
+
+  <div class="landing-card">
+    <h2>How it works</h2>
+    <div class="landing-step"><div class="num">1</div><p>Clip the Pip Tag to your dog's collar and tap it with your phone.</p></div>
+    <div class="landing-step"><div class="num">2</div><p>Enter the activation code from the pack and fill in your dog's profile — takes 60 seconds.</p></div>
+    <div class="landing-step"><div class="num">3</div><p>If your dog ever wanders, whoever finds them taps the tag, sees your details, and can share their live location with you instantly.</p></div>
+  </div>
+
+  <div class="landing-card">
+    <h2>What's inside every tag</h2>
+    <ul class="landing-feats">
+      <li>📞 One-tap call, text or WhatsApp to the owner</li>
+      <li>📍 Finder can share their live location with you</li>
+      <li>🩺 Medical notes, vet details &amp; microchip number</li>
+      <li>🗓️ Free worming, flea &amp; vaccination reminders</li>
+      <li>🚨 Lost Mode — flips the tag into "help me get home"</li>
+      <li>🔒 Private by design — you choose what's shown</li>
+    </ul>
+  </div>
+
+  <div class="landing-cta">
+    <a href="https://www.instagram.com/the_pixar_poms" style="font-weight:800;color:var(--pink)">Follow us on Instagram</a>
+    <p style="font-size:12px;font-weight:600;color:var(--brown-mid);margin-top:14px">Already have a tag? Just tap it with your phone to get started.</p>
+  </div>
+
+  <div class="pip-footer">Powered by <a href="#">Pip Smart Tags</a> · <a href="/privacy.html">Privacy &amp; Terms</a></div>
+</div>
+
 <div id="unregisteredScreen" class="container">
   <div class="pip-header"></div>
   <div class="unreg-body">
@@ -831,7 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const registerBtn = document.getElementById("register-btn");
     if (!tagId) {
       registerBtn.href = SCRIPT_URL + "?manage=NEW";
-      showScreen("unregisteredScreen"); return;
+      showScreen("landingScreen"); return;
     }
     registerBtn.href = SCRIPT_URL + "?manage=" + encodeURIComponent(tagId);
     fetch(`${SCRIPT_URL}?action=getProfile&id=${encodeURIComponent(tagId)}`)
@@ -1004,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', function() {
     event.target.classList.add('active');
   }
   function showScreen(id) {
-    ["loadingScreen","appScreen","unregisteredScreen"].forEach(s => document.getElementById(s).classList.remove("active"));
+    ["loadingScreen","appScreen","unregisteredScreen","landingScreen"].forEach(s => document.getElementById(s).classList.remove("active"));
     document.getElementById(id).classList.add("active");
   }
 </script>
